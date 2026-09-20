@@ -4,7 +4,7 @@
 
 - [uv](https://docs.astral.sh/uv/)（Python 3.13 も uv がインストールします）
 - TypeSafe の API キー: https://console.typesafe.ai/keys
-- チャットモデルのバックエンドを 1 つ（優先順位順）: ChatGPT サブスクリプション、https://build.nvidia.com の NVIDIA キー、またはローカルで動作する LM Studio
+- チャットモデルのバックエンドを 1 つ（優先順位順）: （1）ChatGPT サブスクリプション、（2）https://build.nvidia.com の NVIDIA キー、（3）ローカルで動作する LM Studio
 
 ## セットアップ
 
@@ -43,7 +43,7 @@ uv run python -m case01_routing.main       # サンプルメッセージ 5 件
 uv run python -m case01_routing.main "Where is my invoice?"     # 自分のメッセージ
 uv run python -m case02_deepagents.main    # 問題のないリクエストとインジェクション攻撃の試行
 uv run pytest                              # オフラインのユニットテスト
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check --fix . && uv run ruff format . && uv run ty check .   # lint, format, types
 ```
 
 `.env` を編集せずに、コマンドごとにチャットモデルを切り替えられます。
@@ -59,7 +59,9 @@ uv sync --extra notebook
 uv run jupyter lab notebooks/
 ```
 
-`notebooks/01-case01-routing.ipynb` と `notebooks/02-case02-deepagents.ipynb` は、それぞれのケースを実際のサービスに対して実行します。1 つずつ実行してください。ホスト型 NIM は同時に負荷がかかると遅くなります。ヘッドレスで実行して出力を残すには、次のようにします。
+`notebooks/01-case01-routing.ipynb` と `notebooks/02-case02-deepagents.ipynb` は、それぞれのケースを実際のサービスに対して実行します。1 つずつ実行してください。ホスト型 NIM は同時に負荷がかかると遅くなります。各ノートブックは、まず単発の例を実行し、その後それらを繰り返すため、ローカルモデルでは数分かかります。韓国語版（`*-ko.ipynb`）は、同じコードと結果に韓国語の解説を付けたものです。英語版のノートブックを再実行したら、`uv run python sync_notebooks_ko.py` で更新してください。英語版の Markdown セルを変更した場合は、先にその韓国語テキストを `notebooks/ko.json` に追加してください。韓国語版のノートブックが英語版とずれると、`pytest` が失敗します。
+
+ヘッドレスで実行して出力を残すには、次のようにします。
 
 ```bash
 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/01-case01-routing.ipynb

@@ -4,7 +4,7 @@
 
 - [uv](https://docs.astral.sh/uv/)（它会替你安装 Python 3.13）
 - TypeSafe API 密钥：https://console.typesafe.ai/keys
-- 一个聊天模型后端，按优先级依次为：ChatGPT 订阅、来自 https://build.nvidia.com 的 NVIDIA 密钥，或在本地运行的 LM Studio
+- 一个聊天模型后端，按优先级依次为：（1）ChatGPT 订阅、（2）来自 https://build.nvidia.com 的 NVIDIA 密钥，或（3）在本地运行的 LM Studio
 
 ## 安装配置
 
@@ -43,7 +43,7 @@ uv run python -m case01_routing.main       # 五条示例消息
 uv run python -m case01_routing.main "Where is my invoice?"     # 你自己的消息
 uv run python -m case02_deepagents.main    # 一个正常请求和一次注入尝试
 uv run pytest                              # 离线单元测试
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check --fix . && uv run ruff format . && uv run ty check .   # lint, format, types
 ```
 
 无需修改 `.env`，即可为每条命令单独切换聊天模型：
@@ -59,7 +59,9 @@ uv sync --extra notebook
 uv run jupyter lab notebooks/
 ```
 
-`notebooks/01-case01-routing.ipynb` 和 `notebooks/02-case02-deepagents.ipynb` 会针对在线服务运行各个用例。请逐个运行：并发负载下，托管的 NIM 会变慢。若要以无头方式执行其中一个并保留输出：
+`notebooks/01-case01-routing.ipynb` 和 `notebooks/02-case02-deepagents.ipynb` 会针对在线服务运行各个用例。请逐个运行：并发负载下，托管的 NIM 会变慢。每个 notebook 先运行单个示例，再重复运行这些示例，因此在本地模型上需要好几分钟。韩语版本（`*-ko.ipynb`）的代码和结果与英文版相同，只是说明文字为韩语。重新运行某个英文 notebook 之后，用 `uv run python sync_notebooks_ko.py` 刷新它们。如果英文的 Markdown 单元格有改动，请先把对应的韩语文本添加到 `notebooks/ko.json`。当韩语 notebook 与英文 notebook 不一致时，`pytest` 会失败。
+
+若要以无头方式执行其中一个并保留输出：
 
 ```bash
 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/01-case01-routing.ipynb

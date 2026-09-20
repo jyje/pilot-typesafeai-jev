@@ -8,7 +8,7 @@ v0.1 is ready to publish.**
 Show how TypeSafe AI's **Jev** (a System One model) fits into **LangGraph** and **Deep Agents**, and
 document what actually happens when it does. Jev returns typed judgments and calibrated
 probabilities, never generated text, so code owns the workflow and a chat model still writes the
-replies. The chat model runs on a **ChatGPT subscription** (1), **NVIDIA NIM** (2), or **LM Studio** (3).
+replies. The chat model runs on (1) a **ChatGPT subscription**, (2) **NVIDIA NIM**, or (3) **LM Studio**.
 
 ## How to use this checklist
 
@@ -26,7 +26,7 @@ replies. The chat model runs on a **ChatGPT subscription** (1), **NVIDIA NIM** (
 | --- | --- |
 | Python | 3.13. 3.14 hit a `tokenizers` wheel gap in a sibling pilot |
 | Jev access | `typesafe-sdk`, key in `TYPESAFE_API_KEY`, model `jev-latest` |
-| Inference layer | One factory, `LLM_PROVIDER=openai` (1), `nim` (2), or `lmstudio` (3). Unset picks the first configured, in that order |
+| Inference layer | One factory, `LLM_PROVIDER` is (1) `openai`, (2) `nim`, or (3) `lmstudio`. Unset picks the first configured, in that order |
 | ChatGPT subscription | `langchain-openai` experimental `_ChatOpenAICodex` with ChatGPT OAuth. No `OPENAI_API_KEY`. Token in `~/.langchain/chatgpt-auth.json`, never `~/.codex/auth.json`. Unofficial, so the terms warning stays in the docs |
 | NVIDIA NIM | `langchain-nvidia-ai-endpoints` (`ChatNVIDIA`). There is no `langchain-nvidia-nim` package |
 | LM Studio | OpenAI-compatible route through `langchain-openai`, base URL `/v1` |
@@ -65,7 +65,7 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 
 ### Core library
 
-- [x] Chat model factory: ChatGPT subscription (1), NVIDIA NIM (2), LM Studio (3), automatic choice, timeout, thinking toggle, retry helper, `.env.sample` &mdash; `✨ feat(llm): add chat model factory for ChatGPT, NVIDIA NIM, and LM Studio`
+- [x] Chat model factory: (1) ChatGPT subscription, (2) NVIDIA NIM, (3) LM Studio, automatic choice, timeout, thinking toggle, retry helper, `.env.sample` &mdash; `✨ feat(llm): add chat model factory for ChatGPT, NVIDIA NIM, and LM Studio`
 - [x] Jev gateway (sync and async) and the triage policy &mdash; `✨ feat(jev): add Jev gateway and triage policy`
 - [x] ChatGPT sign-in helper (`python -m pilot_jev.chatgpt_login`, browser or device code) &mdash; `✨ feat(login): add ChatGPT sign-in helper`
 
@@ -82,6 +82,13 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 - [x] Live check of the ChatGPT provider on a low-cost model of the account: `doctor.py` passes, Case 01 `answer` route works, Case 02 calls `verify_claim` and refuses an injection. Calls kept minimal because the plan is near its usage limit (the default `gpt-5.5` returned HTTP 429)
 - [x] Model discovery for the ChatGPT provider (`python -m pilot_jev.chatgpt_models`, prints IDs only, with a test) &mdash; `✨ feat(login): add a model discovery command for the ChatGPT provider`
 - [x] Inference and verification docs in four languages record the ChatGPT results, the model discovery command, and the sign-in caveats; agent context and the recipe skill follow &mdash; `📄 docs(verification): record the ChatGPT provider results and sign-in caveats`
+- [x] Provider lists put the number in front (`(1) ChatGPT subscription, (2) NVIDIA NIM, (3) LM Studio`) in the README in four languages, the getting-started guide, `AGENTS.md`, and this plan &mdash; `📄 docs(readme): put the provider numbers in front of each name`
+- [x] Notebooks repeat the experiments and tabulate the trends: Case 01 stability (10 runs per message), 16 scenarios with expected routes (5 runs each), and cost per route; Case 02 guardrail (10 runs), `verify_claim` (10 runs per pair), and the agent (3 runs). Executed on LM Studio &mdash; `✅ test(notebooks): repeat the experiments and tabulate the trends`
+- [x] Korean notebooks (`*-ko.ipynb`): code and results copied from the English notebooks, Markdown translated from `notebooks/ko.json`, kept in sync by `sync_notebooks_ko.py` and a test &mdash; `✨ feat(notebooks): add Korean notebooks synced from the English results`
+- [x] `python-lint` skill copied from `jyje/skills` (ruff, ty, pytest before any Python change is done) &mdash; `✨ feat(skills): add python-lint skill`
+- [x] `ty` and `nbformat` added to the dev dependencies, and the notebooks are now linted and formatted by ruff (previously excluded) &mdash; `🔨 build(uv): add ty and nbformat to the dev dependencies`
+- [x] Code passes `ty check`: a `Gateway` protocol replaces the concrete `Jev` type in signatures, the router state is a plain `TypedDict`, tests and notebooks are typed, and the two remaining suppressions carry a reason. All four `python-lint` steps are clean (58 tests) &mdash; `♻️ refactor(types): satisfy ty with a Gateway protocol and typed state`
+- [ ] README `Cases` section shows each case's structure diagram with the repeated-experiment results, `docs/04` and `docs/05` carry the full tables and the sync instructions, in four languages &mdash; `📄 docs(readme): show each case with its structure and results`
 
 ### Quality gate (fixes land in the feature commits above, since nothing is committed yet)
 
@@ -116,4 +123,4 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 ### Publish
 
 - [x] Commits created one by one from this checklist, after approval
-- [ ] Pushed to `origin/main` in order. **v0.1 ready**
+- [x] Pushed to `origin/main` in order. **v0.1 ready**

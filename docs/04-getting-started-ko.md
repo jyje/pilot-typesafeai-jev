@@ -4,7 +4,7 @@
 
 - [uv](https://docs.astral.sh/uv/) (Python 3.13은 uv가 설치해 줍니다)
 - TypeSafe API 키: https://console.typesafe.ai/keys
-- 채팅 모델 백엔드 하나. 우선순위 순으로 ChatGPT 구독, https://build.nvidia.com 에서 발급한 NVIDIA 키, 로컬에서 실행 중인 LM Studio 중에서 고릅니다
+- 채팅 모델 백엔드 하나. 우선순위 순으로 (1) ChatGPT 구독, (2) https://build.nvidia.com 에서 발급한 NVIDIA 키, (3) 로컬에서 실행 중인 LM Studio 중에서 고릅니다
 
 ## 설정
 
@@ -43,7 +43,7 @@ uv run python -m case01_routing.main       # 샘플 메시지 다섯 개
 uv run python -m case01_routing.main "Where is my invoice?"     # 직접 입력한 메시지
 uv run python -m case02_deepagents.main    # 정상 요청 하나와 인젝션 시도 하나
 uv run pytest                              # 오프라인 단위 테스트
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check --fix . && uv run ruff format . && uv run ty check .   # lint, format, types
 ```
 
 `.env`를 수정하지 않고 명령마다 채팅 모델을 바꿀 수 있습니다.
@@ -59,7 +59,9 @@ uv sync --extra notebook
 uv run jupyter lab notebooks/
 ```
 
-`notebooks/01-case01-routing.ipynb`와 `notebooks/02-case02-deepagents.ipynb`는 각 케이스를 실제 서비스에 대해 실행합니다. 하나씩 실행하세요. 호스팅 NIM은 동시 부하가 걸리면 느려집니다. 하나를 헤드리스로 실행하고 출력을 남기려면 다음과 같이 합니다.
+`notebooks/01-case01-routing.ipynb`와 `notebooks/02-case02-deepagents.ipynb`는 각 케이스를 실제 서비스에 대해 실행합니다. 하나씩 실행하세요. 호스팅 NIM은 동시 부하가 걸리면 느려집니다. 각 노트북은 먼저 단일 예제를 실행한 다음 이를 반복하므로, 로컬 모델에서는 몇 분이 걸릴 수 있습니다. 한국어 쌍둥이 노트북(`*-ko.ipynb`)은 같은 코드와 결과에 한국어 설명을 담고 있습니다. 영어 노트북을 다시 실행한 뒤에는 `uv run python sync_notebooks_ko.py`로 갱신하세요. 영어 Markdown 셀이 바뀌었다면 먼저 그 한국어 텍스트를 `notebooks/ko.json`에 추가해야 합니다. 한국어 노트북이 영어 노트북과 어긋나면 `pytest`가 실패합니다.
+
+노트북 하나를 헤드리스로 실행하고 출력을 남기려면 다음과 같이 합니다.
 
 ```bash
 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/01-case01-routing.ipynb

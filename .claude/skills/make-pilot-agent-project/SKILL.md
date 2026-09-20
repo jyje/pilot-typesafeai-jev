@@ -110,13 +110,20 @@ Add `AGENTS.md` plus a `CLAUDE.md` that starts with `@AGENTS.md`.
 
 ## 6. Verify in three tiers
 
-1. **Unit**: `pytest` offline with fakes. Routes that must not call the model use a model that
+1. **Unit**: follow the `python-lint` skill (`ruff check --fix`, `ruff format`, `ty check`, `pytest`, dev
+   deps `ruff ty pytest`; put `nbformat` in the dev group too if tests touch notebooks, and lint the
+   notebooks). Type the vendor gateway as a `Protocol` so fakes type-check. `pytest` offline with fakes. Routes that must not call the model use a model that
    raises when touched.
 2. **Scripts**: `doctor.py` (env, vendor API, chat model) and each case's `main.py`, live.
 3. **Notebooks**: `src/notebooks/NN-*.ipynb`, generated with `nbformat`, executed with
-   `uv run jupyter nbconvert --to notebook --execute --inplace`, outputs kept.
+   `uv run jupyter nbconvert --to notebook --execute --inplace`, outputs kept. Do not stop at single
+   runs: repeat each experiment (10 runs for cheap vendor calls with `asyncio.gather`, 3 to 5 for slow
+   chat-model runs), add a hand-written scenario sweep with expected outcomes, and print the results as
+   Markdown tables (`IPython.display.Markdown`) with agreement counts and mean (min to max), so trends
+   show. A translated twin (for example `*-ko.ipynb`) should copy code and outputs from the English
+   notebook and translate only the Markdown, via a sync script plus a `--check` test.
 
-Run slow live calls in the background (a `nohup` script, one at a time, since hosted NIM slows under
+Do simple, long-running work in the background too. Run slow live calls in the background (a `nohup` script, one at a time, since hosted NIM slows under
 concurrent load) and write docs meanwhile. Say plainly what was not verified.
 
 After the work is done, get a **code review from a read-only subagent**, triage each finding by
@@ -148,9 +155,10 @@ vendor, a tool failure aborting a whole agent run, and dead code.
   logo (light and dark) into `docs/images/` and reference it through `raw.githubusercontent.com`
   with `#gh-light-mode-only` and `#gh-dark-mode-only`.
 - `docs/` guides in English, then `-ko`, `-ja`, `-zh-CN` twins (this order everywhere: navigators, indexes, commits), `LICENSE` (MIT).
-  Translate with parallel subagents in the background (one per language, read-only on the English
-  sources, told to keep code, URLs, identifiers, and Mermaid syntax intact), then check that headings,
-  code blocks, table rows, and URLs match the English page.
+  Translate in the main session, not with subagents (each subagent re-reads sources and rewrites whole
+  files, which is costly): edit only the changed sections, keep code, URLs, identifiers, and Mermaid
+  syntax intact, then check that headings, code blocks, table rows, and URLs match the English page.
+  Use a subagent only when a genuinely clean context is needed, such as an independent code review.
 - Commits follow `git-commit-helper`: English, `<gitmoji> <type>(<domain>): <title>`, propose and
   wait for approval, never include session IDs or URLs, never add co-author trailers. Push only
   after explicit approval.

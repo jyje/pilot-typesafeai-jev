@@ -4,8 +4,8 @@
 
 - [uv](https://docs.astral.sh/uv/) (it installs Python 3.13 for you)
 - A TypeSafe API key: https://console.typesafe.ai/keys
-- One chat model backend, in priority order: a ChatGPT subscription, an NVIDIA key from
-  https://build.nvidia.com, or LM Studio running locally
+- One chat model backend, in priority order: (1) a ChatGPT subscription, (2) an NVIDIA key from
+  https://build.nvidia.com, or (3) LM Studio running locally
 
 ## Setup
 
@@ -44,7 +44,7 @@ uv run python -m case01_routing.main       # five sample messages
 uv run python -m case01_routing.main "Where is my invoice?"     # your own message
 uv run python -m case02_deepagents.main    # a clean request and an injection attempt
 uv run pytest                              # offline unit tests
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check --fix . && uv run ruff format . && uv run ty check .   # lint, format, types
 ```
 
 Switch the chat model per command without editing `.env`:
@@ -62,6 +62,12 @@ uv run jupyter lab notebooks/
 
 `notebooks/01-case01-routing.ipynb` and `notebooks/02-case02-deepagents.ipynb` run each case
 against the live services. Run them one at a time: hosted NIM slows down under concurrent load.
+Each notebook first runs single examples and then repeats them, so expect several minutes on a local
+model. Korean twins (`*-ko.ipynb`) carry the same code and results with Korean explanations. After
+re-running an English notebook, refresh them with `uv run python sync_notebooks_ko.py`. If an English
+Markdown cell changed, add its Korean text to `notebooks/ko.json` first. `pytest` fails when the Korean
+notebooks drift from the English ones.
+
 To execute one headless and keep its outputs:
 
 ```bash
