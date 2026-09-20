@@ -15,13 +15,13 @@ flowchart LR
 | --- | --- | --- |
 | Q1 | 一次 Jev 请求能否驱动 LangGraph `StateGraph` 中的路由？ | 能。在 LM Studio 和 NIM 上都实际见到了全部四条路由。 |
 | Q2 | Jev 能否同时作为 Deep Agent 的护栏中间件和工具？ | 能。护栏在不调用模型的情况下拒绝了一次注入，`verify_claim` 返回了类型化的结论。 |
-| Q3 | 一个工厂能否在不改动用例的前提下切换聊天模型？ | NIM 和 LM Studio 可以。ChatGPT 提供方已实现并通过单元测试，但尚未实际运行。 |
+| Q3 | 一个工厂能否在不改动用例的前提下切换聊天模型？ | 能。三种提供方（ChatGPT 订阅、NIM、LM Studio）都在不做任何改动的情况下运行了相同的用例。 |
 | Q4 | 延迟和成本如何？ | Jev 调用很快（各次运行中每次都远低于一秒）。耗时主要来自聊天模型：见下表。 |
 | Q5 | 置信度在哪里有用？ | 它清晰地区分了“意图明确”（0.84 到 1.00）和“不明确”（`hmm` 为 0.77 到 0.82，被路由到复核）。它并不保证正确，所以阈值仍需要用你自己的数据来确定。 |
 
 ## 第 1 层：单元测试
 
-- `uv run pytest`：**56 passed**，离线运行。
+- `uv run pytest`：**57 passed**，离线运行。
 - `uv run ruff check .` 和 `ruff format --check .`：均通过（notebook 是有意排除的）。
 - fake Jev 返回真实的 SDK `SystemOneResponse` 对象，因此响应解析确实被测试到了。
 
@@ -33,11 +33,11 @@ flowchart LR
 | --- | --- | --- | --- |
 | LM Studio，`google/gemma-4-e4b`，32k 上下文 | 通过，5 s | 5 条路由均符合预期，46 s | 通过，41 s |
 | NVIDIA NIM，`nvidia/nemotron-3.5-lightning-30b-a3b` | 通过，41 s | 5 条路由均符合预期，307 s | 通过但有保留，161 s |
-| ChatGPT 订阅 | 未运行 | 未运行 | 未运行 |
+| ChatGPT 订阅，该账户的一个低成本模型 | 通过，3 s | `answer` 路由符合预期（仅一条消息） | 通过，工具被调用且注入被拒绝 |
 
 ### Case 01：Jev 的判断
 
-两个提供方上使用同样的五条消息，数值取自其中一次运行（各次运行之间大约有 0.02 的波动）：
+LM Studio 和 NIM 上使用同样的五条消息，数值取自其中一次运行（各次运行之间大约有 0.02 的波动）：
 
 | 消息 | intent | urgency | injection | route |
 | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ flowchart LR
 | `verify_claim`：证据写的是 Python 3.10，论断写的是 3.6 | `contradicted`，0.99 |
 | `verify_claim`：证据没有提到该论断 | `unrelated`，1.00 |
 
-在 LM Studio 上，智能体按请求行事，用给定的证据调用了一次 `verify_claim`，并报告 `supported`。在 NIM 上，智能体先搜索了文件系统，然后把**它自己**得到的“no matches”结果当作证据传了进去，Jev 回答 `contradicted`（0.98）。Jev 判断的正是它拿到的内容。错在智能体对证据的选择，这也是应当在提示词或代码中显式指定证据选取方式的原因。
+在 LM Studio 和 ChatGPT 提供方上，智能体按请求行事，用给定的证据调用了一次 `verify_claim`，并报告 `supported`（分别为 0.86 和 0.84）。在 NIM 上，智能体先搜索了文件系统，然后把**它自己**得到的“no matches”结果当作证据传了进去，Jev 回答 `contradicted`（0.98）。Jev 判断的正是它拿到的内容。错在智能体对证据的选择，这也是应当在提示词或代码中显式指定证据选取方式的原因。
 
 ## 第 3 层：notebook
 
@@ -76,6 +76,16 @@ flowchart LR
 - **连接会被重置。** 有一次 Deep Agent 运行因 `Connection reset by peer` 而失败。`pilot_jev.retry.with_retries` 会针对连接错误、超时和 HTTP 429/5xx 对整个图调用进行重试，并且绝不会针对 Jev 错误重试。
 - **目录中列出不代表模型可用。** `meta/llama-3.3-70b-instruct` 和其他几个模型返回了 `410 Gone`。一个能列出模型的密钥，在推理时返回了 `403`。
 
+## ChatGPT 订阅提供方的发现
+
+通过浏览器流程登录，令牌保存在 `~/.langchain/chatgpt-auth.json`。
+
+- **端到端可用，** 包括工具调用，每次调用大约两秒即可返回。
+- **订阅方案的使用额度是真实存在的。** 使用默认的 `gpt-5.5` 时，后端返回了 `usage_limit_reached`（HTTP 429），因此验证改用了该账户仍可调用的另一个模型。调用次数被压到最少：`doctor.py`、一条 Case 01 消息、一次 Case 02 运行。
+- **模型名称因账户而异。** `python -m pilot_jev.chatgpt_models` 会列出某个账户提供的模型。有些名称会被 ChatGPT 账户拒绝（HTTP 400："model is not supported when using Codex with a ChatGPT account"）。
+- **设备码登录会失败**，在 `langchain-openai` 1.6.2 下（HTTP 400：该库发送的是表单请求体，而接口现在要求 JSON）。请使用浏览器流程。
+- 实验性且非官方：请仅在你的 OpenAI 账户、订阅方案和条款允许的情况下使用。
+
 ## LM Studio 的发现
 
 `google/gemma-4-e4b` 配合 32k 上下文，在每次运行中都很快，回复也很干净：`doctor.py` 用时 5 s，Case 01 用时 46 s，Case 02 用时 41 s，工具调用正常。Deep Agents 需要更大的上下文（系统提示词约 5,800 个 token）。不需要 API 密钥。
@@ -87,7 +97,8 @@ flowchart LR
 
 ## 未验证的内容
 
-- **ChatGPT 订阅提供方。** 它需要交互式登录，并会消耗账户剩余的订阅额度。默认模型名（`gpt-5.5`）来自 `langchain-openai` 的文档，从未被实际调用过。
+- ChatGPT 提供方的默认模型（`gpt-5.5`）。它是有效的模型，但试用时触达了订阅方案的使用额度上限，所以上面的检查使用了另一个模型。
+- ChatGPT 提供方在完整的五条消息 Case 01 运行以及 notebook 中的表现。那些运行使用的是 LM Studio 和 NIM，以节省订阅额度。
 - 除一个韩语样例之外，Jev 在非英语输入上的表现。
 - 未经调优的阈值（`0.8`、`1.5`、`0.5`、`0.6`）是否适合你的数据。
 
@@ -101,4 +112,4 @@ LLM_PROVIDER=lmstudio uv run python -m case01_routing.main
 LLM_PROVIDER=lmstudio uv run python -m case02_deepagents.main
 ```
 
-使用 NVIDIA 时请用 `LLM_PROVIDER=nim`。如果托管调用很慢，设置 `LLM_TIMEOUT=600`。
+使用 NVIDIA 时请用 `LLM_PROVIDER=nim`；使用 ChatGPT 时，先执行 `python -m pilot_jev.chatgpt_login`，再用 `LLM_PROVIDER=openai` 并设置 `LLM_MODEL=...`。如果托管调用很慢，设置 `LLM_TIMEOUT=600`。

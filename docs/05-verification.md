@@ -16,13 +16,13 @@ flowchart LR
 | --- | --- | --- |
 | Q1 | Can one Jev request drive routing in a LangGraph `StateGraph`? | Yes. All four routes were seen live on LM Studio and on NIM. |
 | Q2 | Can Jev act as a guardrail middleware and as a tool in a Deep Agent? | Yes. The guardrail refused an injection with no model call, and `verify_claim` returned typed verdicts. |
-| Q3 | Does one factory switch the chat model without touching the cases? | Yes for NIM and LM Studio. The ChatGPT provider is implemented and unit tested but not yet run live. |
+| Q3 | Does one factory switch the chat model without touching the cases? | Yes. All three providers (ChatGPT subscription, NIM, LM Studio) ran the same cases unchanged. |
 | Q4 | What do latency and cost look like? | Jev calls are quick (well under a second each in the runs). The chat model dominates: see the table below. |
 | Q5 | Where does confidence help? | It cleanly separated "clear intent" (0.84 to 1.00) from "unclear" (`hmm` at 0.77 to 0.82, routed to review). It is not a correctness guarantee, so thresholds still need your own data. |
 
 ## Tier 1: unit tests
 
-- `uv run pytest`: **56 passed**, offline.
+- `uv run pytest`: **57 passed**, offline.
 - `uv run ruff check .` and `ruff format --check .`: clean (notebooks excluded on purpose).
 - A fake Jev returns real SDK `SystemOneResponse` objects, so response parsing is exercised.
 
@@ -34,11 +34,11 @@ Each run used the final code. Times are wall clock for the whole command.
 | --- | --- | --- | --- |
 | LM Studio, `google/gemma-4-e4b`, 32k context | pass, 5 s | 5 routes as expected, 46 s | pass, 41 s |
 | NVIDIA NIM, `nvidia/nemotron-3.5-lightning-30b-a3b` | pass, 41 s | 5 routes as expected, 307 s | pass with caveats, 161 s |
-| ChatGPT subscription | not run | not run | not run |
+| ChatGPT subscription, a low-cost model of the account | pass, 3 s | `answer` route as expected (one message only) | pass, tool called and injection refused |
 
 ### Case 01: what Jev decided
 
-The same five messages on both providers, values from one run (they moved by about 0.02 between
+The same five messages on LM Studio and on NIM, values from one run (they moved by about 0.02 between
 runs):
 
 | Message | intent | urgency | injection | route |
@@ -62,9 +62,9 @@ handful of hand-written examples, not a benchmark.
 | `verify_claim`: evidence says Python 3.10, claim says 3.6 | `contradicted`, 0.99 |
 | `verify_claim`: evidence does not mention the claim | `unrelated`, 1.00 |
 
-On LM Studio the agent followed the request, called `verify_claim` once with the given evidence, and
-reported `supported`. On NIM the agent first searched the file system, then passed **its own**
-"no matches" result as the evidence, and Jev answered `contradicted` (0.98). Jev judged exactly what
+On LM Studio and on the ChatGPT provider the agent followed the request, called `verify_claim` once
+with the given evidence, and reported `supported` (0.86 and 0.84). On NIM the agent first searched the file system, then passed
+**its own** "no matches" result as the evidence, and Jev answered `contradicted` (0.98). Jev judged exactly what
 it was given. The mistake was the agent's choice of evidence, which is the reason to make evidence
 selection explicit in the prompt or in code.
 
@@ -96,6 +96,21 @@ Model: `nvidia/nemotron-3.5-lightning-30b-a3b`. Also tried: `z-ai/glm-5.3-flash`
 - **The catalog list is not proof a model works.** `meta/llama-3.3-70b-instruct` and several others
   returned `410 Gone`. A key that could list models returned `403` on inference.
 
+## Findings on the ChatGPT subscription provider
+
+Signed in with the browser flow, which stores the token in `~/.langchain/chatgpt-auth.json`.
+
+- **It works end to end,** including tool calling, and answered in about two seconds per call.
+- **The plan's usage limit is real.** With the default `gpt-5.5` the backend answered
+  `usage_limit_reached` (HTTP 429), so verification used another model that the account still could
+  call. Calls were kept to a minimum: `doctor.py`, one Case 01 message, one Case 02 run.
+- **Model names are account specific.** `python -m pilot_jev.chatgpt_models` lists what an account
+  offers. Some names are rejected for ChatGPT accounts (HTTP 400: "model is not supported when using
+  Codex with a ChatGPT account").
+- **The device-code sign-in fails** with `langchain-openai` 1.6.2 (HTTP 400: the library sends a form
+  body where the endpoint now wants JSON). Use the browser flow.
+- Experimental and unofficial: use it only where your OpenAI account, plan, and terms allow it.
+
 ## Findings on LM Studio
 
 `google/gemma-4-e4b` with a 32k context was fast and gave clean replies in every run: `doctor.py` in
@@ -114,9 +129,10 @@ Model: `nvidia/nemotron-3.5-lightning-30b-a3b`. Also tried: `z-ai/glm-5.3-flash`
 
 ## Not verified
 
-- **The ChatGPT subscription provider.** It needs an interactive sign-in and uses the account's
-  remaining plan quota. The default model name (`gpt-5.5`) comes from the `langchain-openai` docs and
-  was never called.
+- The ChatGPT provider's default model (`gpt-5.5`). It is a valid model but hit the plan's usage
+  limit when tried, so the checks above used another model.
+- The ChatGPT provider on the full five-message Case 01 run and inside the notebooks. Those used LM
+  Studio and NIM, to spare the plan quota.
 - Jev on non-English inputs beyond one Korean example.
 - Whether the untuned thresholds (`0.8`, `1.5`, `0.5`, `0.6`) suit your data.
 
@@ -130,4 +146,5 @@ LLM_PROVIDER=lmstudio uv run python -m case01_routing.main
 LLM_PROVIDER=lmstudio uv run python -m case02_deepagents.main
 ```
 
-Use `LLM_PROVIDER=nim` for NVIDIA. Set `LLM_TIMEOUT=600` if hosted calls are slow.
+Use `LLM_PROVIDER=nim` for NVIDIA, or `LLM_PROVIDER=openai` with `LLM_MODEL=...` after
+`python -m pilot_jev.chatgpt_login`. Set `LLM_TIMEOUT=600` if hosted calls are slow.

@@ -36,14 +36,23 @@ flowchart TD
 使用你的 ChatGPT 订阅，而不是 OpenAI API 密钥。它**不是**公开的 `api.openai.com` API：`langchain-openai` 内置了一个实验性的 `_ChatOpenAICodex`，通过 ChatGPT OAuth（PKCE）登录并调用 ChatGPT Codex 后端，思路与 Hermes Agent 的 `openai-codex` 提供方相同。把 OAuth 令牌直接传给 `ChatOpenAI` 是行不通的。
 
 ```bash
-uv run python -m pilot_jev.chatgpt_login            # opens a browser
-uv run python -m pilot_jev.chatgpt_login --device   # headless device-code flow
+uv run python -m pilot_jev.chatgpt_login   # opens a browser and waits up to 15 minutes
+```
+
+登录过程会在 `http://localhost:1455` 上监听回调，因此需要在同一台机器上有浏览器。`chatgpt_login --device`（设备码方式，适用于无头机器）虽然存在，但目前会失败：在 `langchain-openai` 1.6.2 下，OpenAI 返回 HTTP 400，原因是该库发送的是表单编码的请求体，而接口现在要求 JSON。
+
+模型名称因账户和订阅方案而异。请先列出你的账户提供哪些模型，再设置 `LLM_MODEL`：
+
+```bash
+uv run python -m pilot_jev.chatgpt_models   # prints model IDs only, never the token
 ```
 
 ```dotenv
 LLM_PROVIDER=openai
-# LLM_MODEL=gpt-5.5        (default, from the langchain-openai docs, not tested; use a model your plan allows)
+LLM_MODEL=...              # default gpt-5.5, from the langchain-openai docs
 ```
+
+列出的名称仍然可能失败：有些模型会被 ChatGPT 账户拒绝（HTTP 400），有些模型则可能已超出其使用额度（HTTP 429）。
 
 ```mermaid
 sequenceDiagram

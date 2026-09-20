@@ -76,7 +76,13 @@ first configured provider wins: ChatGPT sign-in, then an NVIDIA key or base URL,
   `~/.langchain/chatgpt-auth.json`. **Never read or copy `~/.codex/auth.json`**: rotating the Codex CLI
   token can break the user's CLI sessions. Keep the "experimental, unofficial, check your terms"
   warning in the docs and in the login helper. Signing in is interactive, so ask the user to run it
-  (`! uv run python -m pilot_jev.chatgpt_login --device`) and verify afterwards.
+  (`! uv run python -m pilot_jev.chatgpt_login`, browser flow) and verify afterwards. The device-code
+  flow of `langchain-openai` 1.6.2 fails with HTTP 400 (form body where the endpoint wants JSON), so
+  start the browser flow yourself in the background and hand the user the sign-in URL. Model names
+  differ per account and some are rejected for ChatGPT accounts (HTTP 400): discover them with the
+  Codex `models` endpoint (`GET https://chatgpt.com/backend-api/codex/models?client_version=1.0.0`
+  with the Bearer token and `ChatGPT-Account-Id` header, printing IDs only). A plan near its limit
+  returns HTTP 429, so try one cheap model with a tiny prompt before running anything longer.
 
 - NIM: package `langchain-nvidia-ai-endpoints`, class `ChatNVIDIA`. **`langchain-nvidia-nim` does not
   exist.** Pass `api_key`, optional `base_url` for self-hosted NIM.

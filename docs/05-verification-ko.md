@@ -15,13 +15,13 @@ flowchart LR
 | --- | --- | --- |
 | Q1 | Jev 요청 한 번으로 LangGraph `StateGraph`의 라우팅을 구동할 수 있는가? | 예. 네 경로 모두 LM Studio와 NIM에서 실제로 확인했습니다. |
 | Q2 | Jev가 Deep Agent에서 가드레일 미들웨어와 도구로 동작할 수 있는가? | 예. 가드레일은 모델 호출 없이 인젝션을 거부했고, `verify_claim`은 타입이 있는 판정을 반환했습니다. |
-| Q3 | 케이스 코드를 건드리지 않고 팩토리 하나로 채팅 모델을 바꿀 수 있는가? | NIM과 LM Studio는 예. ChatGPT 프로바이더는 구현과 단위 테스트를 마쳤지만 아직 실제로 실행하지는 않았습니다. |
+| Q3 | 케이스 코드를 건드리지 않고 팩토리 하나로 채팅 모델을 바꿀 수 있는가? | 예. 세 프로바이더(ChatGPT 구독, NIM, LM Studio) 모두 같은 케이스를 수정 없이 실행했습니다. |
 | Q4 | 지연 시간과 비용은 어떤가? | Jev 호출은 빠릅니다(실행 중 건당 1초 미만). 채팅 모델이 대부분을 차지합니다. 아래 표를 참고하세요. |
 | Q5 | 신뢰도는 어디에 도움이 되는가? | "명확한 의도"(0.84~1.00)와 "불분명한 의도"(`hmm`이 0.77~0.82, review로 라우팅)를 깔끔하게 구분했습니다. 정확성을 보장하지는 않으므로 임계값은 자체 데이터로 정해야 합니다. |
 
 ## Tier 1: 단위 테스트
 
-- `uv run pytest`: 오프라인으로 **56개 통과**.
+- `uv run pytest`: 오프라인으로 **57개 통과**.
 - `uv run ruff check .`와 `ruff format --check .`: 문제 없음(노트북은 의도적으로 제외).
 - 가짜 Jev가 실제 SDK `SystemOneResponse` 객체를 반환하므로 응답 파싱까지 검증됩니다.
 
@@ -33,11 +33,11 @@ flowchart LR
 | --- | --- | --- | --- |
 | LM Studio, `google/gemma-4-e4b`, 32k 컨텍스트 | 통과, 5초 | 경로 5개 모두 기대대로, 46초 | 통과, 41초 |
 | NVIDIA NIM, `nvidia/nemotron-3.5-lightning-30b-a3b` | 통과, 41초 | 경로 5개 모두 기대대로, 307초 | 단서 있이 통과, 161초 |
-| ChatGPT 구독 | 실행 안 함 | 실행 안 함 | 실행 안 함 |
+| ChatGPT 구독, 계정에서 쓸 수 있는 저비용 모델 | 통과, 3초 | `answer` 경로 기대대로(메시지 하나만) | 통과, 도구 호출됨, 인젝션 거부됨 |
 
 ### Case 01: Jev의 판단
 
-두 프로바이더에서 같은 메시지 다섯 개를 실행했습니다. 값은 한 번의 실행 결과이며, 실행마다 약 0.02 정도 움직였습니다.
+LM Studio와 NIM에서 같은 메시지 다섯 개를 실행했습니다. 값은 한 번의 실행 결과이며, 실행마다 약 0.02 정도 움직였습니다.
 
 | 메시지 | intent | urgency | injection | 경로 |
 | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ flowchart LR
 | `verify_claim`: 근거는 Python 3.10, 주장은 3.6 | `contradicted`, 0.99 |
 | `verify_claim`: 근거가 주장을 언급하지 않음 | `unrelated`, 1.00 |
 
-LM Studio에서는 에이전트가 요청대로 주어진 근거와 함께 `verify_claim`을 한 번 호출하고 `supported`를 보고했습니다. NIM에서는 에이전트가 먼저 파일 시스템을 검색한 뒤 **자신의** "일치 항목 없음" 결과를 근거로 넘겼고, Jev는 `contradicted`(0.98)로 답했습니다. Jev는 받은 것을 정확히 판단했습니다. 잘못은 근거를 고른 에이전트의 선택에 있었으며, 그래서 프롬프트나 코드에서 근거 선택을 명시적으로 만들어야 합니다.
+LM Studio와 ChatGPT 프로바이더에서는 에이전트가 요청대로 주어진 근거와 함께 `verify_claim`을 한 번 호출하고 `supported`를 보고했습니다(0.86과 0.84). NIM에서는 에이전트가 먼저 파일 시스템을 검색한 뒤 **자신의** "일치 항목 없음" 결과를 근거로 넘겼고, Jev는 `contradicted`(0.98)로 답했습니다. Jev는 받은 것을 정확히 판단했습니다. 잘못은 근거를 고른 에이전트의 선택에 있었으며, 그래서 프롬프트나 코드에서 근거 선택을 명시적으로 만들어야 합니다.
 
 ## Tier 3: 노트북
 
@@ -76,6 +76,16 @@ LM Studio에서는 에이전트가 요청대로 주어진 근거와 함께 `veri
 - **연결이 끊깁니다.** Deep Agent 실행이 한 번 `Connection reset by peer`로 실패했습니다. `pilot_jev.retry.with_retries`는 연결 오류, 타임아웃, HTTP 429/5xx에 대해 그래프 호출 전체를 재시도하며, Jev 오류는 재시도하지 않습니다.
 - **카탈로그에 나온다고 모델이 동작하는 것은 아닙니다.** `meta/llama-3.3-70b-instruct`를 포함한 여러 모델이 `410 Gone`을 반환했습니다. 모델 목록을 조회할 수 있었던 키가 추론에서는 `403`을 반환하기도 했습니다.
 
+## ChatGPT 구독 프로바이더에서 확인한 사항
+
+브라우저 방식으로 로그인했으며, 토큰은 `~/.langchain/chatgpt-auth.json`에 저장됩니다.
+
+- **끝까지 동작합니다.** 도구 호출도 포함하며, 호출당 약 2초 만에 응답했습니다.
+- **요금제의 사용량 한도는 실제로 작동합니다.** 기본값 `gpt-5.5`에서는 백엔드가 `usage_limit_reached`(HTTP 429)로 응답했기 때문에, 계정에서 아직 호출할 수 있던 다른 모델로 검증했습니다. 호출은 최소한으로 제한했습니다: `doctor.py`, Case 01 메시지 하나, Case 02 실행 한 번.
+- **모델 이름은 계정마다 다릅니다.** `python -m pilot_jev.chatgpt_models`가 계정이 제공하는 모델을 나열합니다. 일부 이름은 ChatGPT 계정에서 거부됩니다(HTTP 400: "model is not supported when using Codex with a ChatGPT account").
+- **device-code 로그인은 실패합니다.** `langchain-openai` 1.6.2에서는 라이브러리가 form 본문을 보내는데 엔드포인트는 이제 JSON을 요구합니다(HTTP 400). 브라우저 방식을 사용하세요.
+- 실험적이며 비공식입니다. OpenAI 계정, 요금제, 약관이 허용하는 환경에서만 사용하세요.
+
 ## LM Studio에서 확인한 사항
 
 컨텍스트 32k의 `google/gemma-4-e4b`는 모든 실행에서 빠르고 깨끗한 응답을 냈습니다. `doctor.py`는 5초, Case 01은 46초, Case 02는 41초였고 도구 호출도 동작했습니다. Deep Agents에는 더 큰 컨텍스트가 필요합니다(시스템 프롬프트 약 5,800 토큰). API 키는 필요 없습니다.
@@ -87,7 +97,8 @@ LM Studio에서는 에이전트가 요청대로 주어진 근거와 함께 `veri
 
 ## 검증하지 못한 사항
 
-- **ChatGPT 구독 프로바이더.** 대화형 로그인이 필요하고 계정의 남은 요금제 사용량을 소모합니다. 기본 모델 이름(`gpt-5.5`)은 `langchain-openai` 문서에서 가져왔으며 한 번도 호출하지 않았습니다.
+- ChatGPT 프로바이더의 기본 모델(`gpt-5.5`). 유효한 모델이지만 시도했을 때 요금제 사용량 한도에 걸려서, 위의 확인은 다른 모델로 했습니다.
+- 메시지 5개짜리 전체 Case 01 실행과 노트북 안에서의 ChatGPT 프로바이더. 요금제 사용량을 아끼기 위해 이 부분은 LM Studio와 NIM으로 실행했습니다.
 - 한국어 예시 하나를 넘어서는 비영어 입력에 대한 Jev의 동작.
 - 튜닝하지 않은 임계값(`0.8`, `1.5`, `0.5`, `0.6`)이 여러분의 데이터에 맞는지 여부.
 
@@ -101,4 +112,4 @@ LLM_PROVIDER=lmstudio uv run python -m case01_routing.main
 LLM_PROVIDER=lmstudio uv run python -m case02_deepagents.main
 ```
 
-NVIDIA를 쓰려면 `LLM_PROVIDER=nim`을 사용하세요. 호스팅 호출이 느리면 `LLM_TIMEOUT=600`을 설정하세요.
+NVIDIA를 쓰려면 `LLM_PROVIDER=nim`을, ChatGPT를 쓰려면 `python -m pilot_jev.chatgpt_login`을 실행한 뒤 `LLM_PROVIDER=openai`와 `LLM_MODEL=...`을 사용하세요. 호스팅 호출이 느리면 `LLM_TIMEOUT=600`을 설정하세요.

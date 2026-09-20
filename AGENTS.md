@@ -22,7 +22,7 @@ chat model runs on a **ChatGPT subscription** (1), **NVIDIA NIM** (2), or **LM S
 docs/                      guides with Mermaid diagrams, EN plus -ko/-ja/-zh-CN twins; docs/images/ has the TypeSafe logos
 temp/                      gitignored private notes, never publish or commit
 src/                       uv app, Python 3.13
-  pilot_jev/               shared code: env, jev gateway, llm factory, chatgpt_login, retry, text, triage
+  pilot_jev/               shared code: env, jev gateway, llm factory, chatgpt_login, chatgpt_models, retry, text, triage
   case01_routing/          Jev as a LangGraph router
   case02_deepagents/       Jev as guardrail middleware and verify tool in a Deep Agent
   notebooks/               executed verification notebooks
@@ -70,6 +70,8 @@ Read the key from the keychain without printing it:
   Jev code, ask independent questions in one request, keep policy in code, and treat thresholds as
   starting points to evaluate.
 - Every Jev call goes through `pilot_jev.jev.Jev` so tests can swap in a fake.
+- Model names are account specific. Find them with `python -m pilot_jev.chatgpt_models`, and keep
+  account-specific names out of public docs.
 - The `openai` provider uses ChatGPT OAuth, never `OPENAI_API_KEY`. It is experimental and unofficial,
   so keep the terms warning. Never read or copy `~/.codex/auth.json`; the token store is
   `~/.langchain/chatgpt-auth.json`.

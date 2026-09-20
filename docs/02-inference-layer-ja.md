@@ -37,14 +37,23 @@ flowchart TD
 OpenAI の API キーの代わりに、ChatGPT のサブスクリプションを使います。公開の `api.openai.com` API では**ありません**。`langchain-openai` に含まれる実験的な `_ChatOpenAICodex` が ChatGPT OAuth（PKCE）でサインインし、ChatGPT Codex バックエンドを呼び出します。Hermes Agent の `openai-codex` provider と同じ考え方です。OAuth トークンを `ChatOpenAI` に渡しても動作しません。
 
 ```bash
-uv run python -m pilot_jev.chatgpt_login            # ブラウザを開く
-uv run python -m pilot_jev.chatgpt_login --device   # ヘッドレス向けのデバイスコードフロー
+uv run python -m pilot_jev.chatgpt_login   # ブラウザを開き、最大 15 分間待機する
+```
+
+サインインではコールバックを `http://localhost:1455` で待ち受けるため、同じマシン上のブラウザが必要です。`chatgpt_login --device`（ヘッドレスマシン向けのデバイスコード方式）も用意されていますが、現時点では失敗します。`langchain-openai` 1.6.2 では、ライブラリがフォームエンコードの本文を送信するのに対し、エンドポイントが JSON を要求するようになったため、OpenAI が HTTP 400 を返します。
+
+モデル名はアカウントやプランによって異なります。お使いのアカウントで利用できるモデルを一覧表示し、`LLM_MODEL` に設定してください。
+
+```bash
+uv run python -m pilot_jev.chatgpt_models   # モデル ID だけを表示し、トークンは表示しない
 ```
 
 ```dotenv
 LLM_PROVIDER=openai
-# LLM_MODEL=gpt-5.5        (default, from the langchain-openai docs, not tested; use a model your plan allows)
+LLM_MODEL=...              # default gpt-5.5, from the langchain-openai docs
 ```
+
+一覧に表示された名前でも失敗することがあります。ChatGPT アカウントでは拒否されるモデルがあり（HTTP 400）、モデルによっては利用上限に達していることもあります（HTTP 429）。
 
 ```mermaid
 sequenceDiagram

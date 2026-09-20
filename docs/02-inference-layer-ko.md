@@ -36,14 +36,23 @@ flowchart TD
 OpenAI API 키 대신 ChatGPT 구독을 사용합니다. 공개 `api.openai.com` API가 **아닙니다**. `langchain-openai`에 포함된 실험적 클래스 `_ChatOpenAICodex`가 ChatGPT OAuth(PKCE)로 로그인해 ChatGPT Codex 백엔드를 호출하는 방식이며, Hermes Agent가 `openai-codex` 프로바이더에 쓰는 방식과 같은 발상입니다. OAuth 토큰을 `ChatOpenAI`에 넘기는 방식은 동작하지 않습니다.
 
 ```bash
-uv run python -m pilot_jev.chatgpt_login            # 브라우저를 엽니다
-uv run python -m pilot_jev.chatgpt_login --device   # 브라우저 없는 환경용 device-code 방식
+uv run python -m pilot_jev.chatgpt_login   # 브라우저를 열고 최대 15분간 대기합니다
+```
+
+로그인은 콜백을 받기 위해 `http://localhost:1455`에서 대기하므로 같은 머신에 브라우저가 있어야 합니다. `chatgpt_login --device`(device code 방식, 브라우저 없는 머신용)도 있지만 현재는 실패합니다. `langchain-openai` 1.6.2에서는 라이브러리가 form 인코딩 본문을 보내는데 엔드포인트는 이제 JSON을 요구하기 때문에 OpenAI가 HTTP 400으로 응답합니다.
+
+모델 이름은 계정과 요금제마다 다릅니다. 내 계정이 제공하는 모델을 조회한 뒤 `LLM_MODEL`을 설정하세요.
+
+```bash
+uv run python -m pilot_jev.chatgpt_models   # 모델 ID만 출력하며 토큰은 출력하지 않습니다
 ```
 
 ```dotenv
 LLM_PROVIDER=openai
-# LLM_MODEL=gpt-5.5        (default, from the langchain-openai docs, not tested; use a model your plan allows)
+LLM_MODEL=...              # default gpt-5.5, from the langchain-openai docs
 ```
+
+목록에 있는 이름도 실패할 수 있습니다. ChatGPT 계정에서는 거부되는 모델이 있고(HTTP 400), 모델이 사용량 한도를 초과했을 수도 있습니다(HTTP 429).
 
 ```mermaid
 sequenceDiagram

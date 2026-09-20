@@ -42,14 +42,27 @@ ChatGPT OAuth (PKCE) and calls the ChatGPT Codex backend, the same idea Hermes A
 `openai-codex` provider. Passing an OAuth token to `ChatOpenAI` does not work.
 
 ```bash
-uv run python -m pilot_jev.chatgpt_login            # opens a browser
-uv run python -m pilot_jev.chatgpt_login --device   # headless device-code flow
+uv run python -m pilot_jev.chatgpt_login   # opens a browser and waits up to 15 minutes
+```
+
+The sign-in listens on `http://localhost:1455` for the callback, so it needs a browser on the same
+machine. `chatgpt_login --device` (device code, for headless machines) exists but currently fails: with
+`langchain-openai` 1.6.2 OpenAI answers HTTP 400 because the library sends a form-encoded body where
+the endpoint now wants JSON.
+
+Model names differ per account and plan. List what yours offers, then set `LLM_MODEL`:
+
+```bash
+uv run python -m pilot_jev.chatgpt_models   # prints model IDs only, never the token
 ```
 
 ```dotenv
 LLM_PROVIDER=openai
-# LLM_MODEL=gpt-5.5        (default, from the langchain-openai docs, not tested; use a model your plan allows)
+LLM_MODEL=...              # default gpt-5.5, from the langchain-openai docs
 ```
+
+A listed name can still fail: some are rejected for ChatGPT accounts (HTTP 400), and a model can be
+over its usage limit (HTTP 429).
 
 ```mermaid
 sequenceDiagram

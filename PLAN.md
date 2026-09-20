@@ -78,7 +78,10 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 ### Verification evidence
 
 - [x] Executed notebooks for both cases on the final code, on LM Studio because hosted NIM output was not reliable enough to keep as an example &mdash; `✅ test(notebooks): add executed verification notebooks`
-- [ ] Live check of the ChatGPT provider: sign in, then `doctor.py` and a minimal Case 01 run with a model the plan still allows (`LLM_MODEL=...`), keeping calls to a minimum. **Blocked on the user's interactive sign-in**
+- [x] Sign-in helper waits 15 minutes for the browser callback and explains that the device-code flow of `langchain-openai` 1.6.2 fails with HTTP 400 &mdash; `🐛 bug(login): wait longer for the sign-in and explain the broken device flow`
+- [x] Live check of the ChatGPT provider on a low-cost model of the account: `doctor.py` passes, Case 01 `answer` route works, Case 02 calls `verify_claim` and refuses an injection. Calls kept minimal because the plan is near its usage limit (the default `gpt-5.5` returned HTTP 429)
+- [x] Model discovery for the ChatGPT provider (`python -m pilot_jev.chatgpt_models`, prints IDs only, with a test) &mdash; `✨ feat(login): add a model discovery command for the ChatGPT provider`
+- [x] Inference and verification docs in four languages record the ChatGPT results, the model discovery command, and the sign-in caveats; agent context and the recipe skill follow &mdash; `📄 docs(verification): record the ChatGPT provider results and sign-in caveats`
 
 ### Quality gate (fixes land in the feature commits above, since nothing is committed yet)
 
@@ -94,6 +97,7 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 - [x] Japanese translation &mdash; `📄 docs(ja): add Japanese README and guides`
 - [x] Simplified Chinese translation &mdash; `📄 docs(zh-cn): add Simplified Chinese README and guides`
 - [x] Agent context: `AGENTS.md`, `CLAUDE.md`, and this plan &mdash; `📄 docs(agents): add agent context and plan`
+- [x] README states the goals of the pilot (heading `A goal of this pilot`, five goals with verification last, and what it is not) in all four languages &mdash; `📄 docs(readme): state the goals of the pilot`
 - [x] README fixes in all four languages: overview diagram split into one Mermaid block per case (auto layout put Case 02 above Case 01), and the empty header row of the Docs table filled in &mdash; `📄 docs(readme): fix the overview diagram order and the Docs table header`
 
 ### Reusable recipe
@@ -111,5 +115,5 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 
 ### Publish
 
-- [ ] Commits created one by one from this checklist, after approval
+- [x] Commits created one by one from this checklist, after approval
 - [ ] Pushed to `origin/main` in order. **v0.1 ready**
