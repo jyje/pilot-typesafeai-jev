@@ -1,0 +1,47 @@
+[project]
+name = "pilot-typesafeai-jev"
+version = "0.1.0"
+description = "Pilot for TypeSafe AI Jev (System One) inside LangGraph and Deep Agents, on NVIDIA NIM or LM Studio"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "aiohttp>=3.14.3",
+    "deepagents>=0.7.15",
+    "langchain-nvidia-ai-endpoints>=1.4.3",
+    "langchain-openai>=1.6.2",
+    "langgraph>=1.2.11",
+    "python-dotenv>=1.2.3",
+    "requests>=2.34.2",
+    "typesafe-sdk>=0.7.0",
+]
+
+[project.optional-dependencies]
+studio = [
+    "langgraph-cli[inmem]>=0.4.0",
+]
+notebook = [
+    "jupyter>=1.1.0",
+    "ipykernel>=6.29.0",
+    "nbformat>=5.10.0",
+    "nbconvert>=7.16.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.6.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "live: needs real TYPESAFE_API_KEY and a reachable LLM backend",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+# Notebooks put sys.path setup before imports on purpose.
+extend-exclude = ["notebooks"]
