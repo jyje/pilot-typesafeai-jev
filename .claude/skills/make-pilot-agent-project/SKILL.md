@@ -96,7 +96,8 @@ first configured provider wins: ChatGPT sign-in, then an NVIDIA key or base URL,
 - NIM reasoning models can leak their thinking into the reply. Offer `LLM_ENABLE_THINKING=false`, sent as
   `model_kwargs={"chat_template_kwargs": {"enable_thinking": False}}`.
 - The hosted endpoint sometimes resets connections mid-run and `ChatNVIDIA` has no retry setting.
-  Retry around the graph call (`with_retries`), not with `with_retry()` on the model.
+  Retry the chat model *call* (in the node, or in an agent middleware's `awrap_model_call`), never a
+  whole graph or agent run: a replay calls and bills the vendor again. Do not retry 401, 403, or 404.
 - Put vendor calls behind one gateway class with `ask` and `aask` so tests can inject a fake that
   returns the SDK's real response type.
 
@@ -107,6 +108,8 @@ Create one `PLAN.md`: goal, decisions table, verification strategy, constraints,
 it. Tick an item only after it has run. Add items as work turns up, and backfill items for work that
 was done before it had one. No separate `TASK.md`. When every box is ticked the release is ready.
 Add `AGENTS.md` plus a `CLAUDE.md` that starts with `@AGENTS.md`.
+**At release, delete `PLAN.md`** (git history keeps it), remove its links from the README and
+`AGENTS.md`, and tag `v0.1.0`.
 
 ## 6. Verify in three tiers
 

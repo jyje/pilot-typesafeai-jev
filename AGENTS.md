@@ -1,8 +1,8 @@
 # AGENTS.md
 
-Context for AI coding agents (Claude Code, Codex, Hermes, Copilot). Scope and progress live in
-[`PLAN.md`](PLAN.md): one checklist item is one commit, and an item is ticked only after the work
-has run and been verified. When every box is ticked, v0.1 is ready to publish.
+Context for AI coding agents (Claude Code, Codex, Hermes, Copilot). Released as v0.1.0. The plan and
+checklist that guided the work lived in `PLAN.md`, one item per commit and ticked only after the work
+had run. It was removed at release and stays in git history (`git log -- PLAN.md`).
 
 ## Purpose
 
@@ -65,7 +65,7 @@ Read the key from the keychain without printing it:
 
 ## Conventions
 
-- Source code, comments, `AGENTS.md`, `PLAN.md`, and `docs/` are English. `README.md`
+- Source code, comments, `AGENTS.md`, and `docs/` are English. `README.md`
   and each `docs/` page have translated twins, always in this order: English (default), Korean
   (`-ko`), Japanese (`-ja`), Simplified Chinese (`-zh-CN`). Edit English first, then the twins.
 - Keep the README short and visual. Put detail and Mermaid diagrams in `docs/`.
@@ -85,5 +85,5 @@ Read the key from the keychain without printing it:
 - The NIM package is `langchain-nvidia-ai-endpoints` (`ChatNVIDIA`). There is no `langchain-nvidia-nim`.
 - A model listed in the NIM catalog can still return `410 Gone`. Call it before relying on it.
 - The `.env` file is gitignored. Never print, log, or commit key values.
-- Commits follow `.claude/skills/git-commit-helper/SKILL.md`. One `PLAN.md` item is one commit.
+- Commits follow `.claude/skills/git-commit-helper/SKILL.md`. Keep one meaningful piece of work per commit.
   Never commit or push without explicit approval, and never put session IDs, session URLs, or co-author trailers in a commit.
