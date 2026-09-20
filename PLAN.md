@@ -123,4 +123,5 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 ### Publish
 
 - [x] Commits created one by one from this checklist, after approval
+- [x] README fix: remove the duplicated old Case 02 table that a wrong slice carried into the `Cases` section, and explain the result tables (what each column means and how the numbers decide the route) in four languages &mdash; `📄 docs(readme): explain the result tables and drop a duplicated block`
 - [x] Pushed to `origin/main` in order. **v0.1 ready**
