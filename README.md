@@ -23,13 +23,33 @@
 
 </div>
 
-## What is this
+## A goal of this pilot
 
-[Jev](https://docs.typesafe.ai/concepts/system-one) reads text and returns **typed answers with
-probabilities**, not generated text. Code keeps control of the workflow, Jev makes the fast
-judgment calls, and a chat model still writes the replies.
+Put TypeSafe AI's [Jev](https://docs.typesafe.ai/concepts/system-one) into LangGraph and Deep Agents
+for real, and record what works and what does not.
 
-This repo puts Jev in two places and records what happens:
+1. **Understand Jev.** It reads text and returns typed answers with probabilities (`Choice`, `Score`,
+   `Noul`) instead of generated text, and every answer carries a confidence.
+   See the [Jev overview](docs/01-jev-overview.md).
+2. **Show who does what.** Code owns the workflow, Jev makes the fast judgment calls, and a chat model
+   still writes the replies.
+3. **Route with Jev in LangGraph (Case 01).** One request asks three questions, plain code picks the
+   route, and only the `answer` route spends chat model tokens.
+4. **Guard and verify with Jev in Deep Agents (Case 02).** A guardrail middleware screens the message
+   before the agent starts, and a `verify_claim` tool returns a verdict with a confidence.
+   See the [cases](docs/03-cases.md).
+5. **Verify.** Unit tests, live scripts, and executed notebooks, with the measured results,
+   failures, and caveats published. See the [verification](docs/05-verification.md).
+
+What it is not:
+
+- A benchmark of Jev's accuracy. The thresholds are untuned starting points.
+- Production code.
+- A stable ChatGPT subscription integration. That provider is experimental and unofficial.
+
+## The two cases
+
+Case 01 and Case 02 at a glance:
 
 ```mermaid
 flowchart LR

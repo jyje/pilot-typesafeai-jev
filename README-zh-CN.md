@@ -23,11 +23,29 @@
 
 </div>
 
-## 这是什么
+## 本试点的目标
 
-[Jev](https://docs.typesafe.ai/concepts/system-one) 读取文本，返回**带概率的类型化答案**，而不是生成的文本。工作流仍由代码掌控，Jev 负责快速判断，回复则依然由聊天模型来写。
+把 TypeSafe AI 的 [Jev](https://docs.typesafe.ai/concepts/system-one) 真正接入 LangGraph 和 Deep Agents，
+并记录哪些行得通、哪些行不通。
 
-本仓库把 Jev 放在两个位置，并记录实际效果：
+1. **理解 Jev。** 它返回带概率的类型化答案（`Choice`、`Score`、`Noul`），而不是生成的文本，每个答案都带有置信度。
+   参见 [Jev 概览](docs/01-jev-overview-zh-CN.md)。
+2. **说明各自分工。** 工作流由代码掌控，快速判断交给 Jev，回复仍由聊天模型来写。
+3. **在 LangGraph 中用 Jev 做路由（Case 01）。** 一次请求提出三个问题，由代码选择路由，只有 `answer` 路由才消耗聊天模型的 token。
+4. **在 Deep Agents 中用 Jev 做防护与核验（Case 02）。** 护栏中间件在智能体启动前筛查消息，
+   `verify_claim` 工具返回带置信度的判定。参见[案例](docs/03-cases-zh-CN.md)。
+5. **验证。** 用单元测试、实时脚本和已执行的 notebook 进行验证，并公开实测结果、失败情况与注意事项。
+   参见[验证](docs/05-verification-zh-CN.md)。
+
+它不是：
+
+- Jev 准确率的基准测试。阈值只是未经调优的起点。
+- 生产级代码。
+- ChatGPT 订阅提供方的稳定集成，该提供方是实验性且非官方的。
+
+## 两个案例
+
+一览 Case 01 与 Case 02：
 
 ```mermaid
 flowchart LR
