@@ -113,7 +113,7 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 
 ### Release gate (checks, no commit)
 
-- [x] `ruff check`, `ruff format --check`, `pytest` green (56 tests)
+- [x] `ruff check`, `ruff format --check`, `pytest` green (64 tests)
 - [x] Every Mermaid block renders (40 blocks across the four languages, rendered with mermaid-cli)
 - [x] Every relative Markdown link resolves in all four languages
 - [x] No secret values in any file that would be committed
@@ -124,4 +124,6 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 
 - [x] Commits created one by one from this checklist, after approval
 - [x] README fix: remove the duplicated old Case 02 table that a wrong slice carried into the `Cases` section, and explain the result tables (what each column means and how the numbers decide the route) in four languages &mdash; `📄 docs(readme): explain the result tables and drop a duplicated block`
+- [x] Second code review (`/code-review` on the whole codebase): retry only the chat model call and never replay Jev, skip permanent HTTP errors, keep plain strings in list content, ignore placeholder keys and empty sign-ins, declare `httpx`, describe all three providers, and align the docs with the final notebook run (64 tests) &mdash; `🐛 bug(retry): ...`, `🐛 bug(config): ...`, `🔨 build(uv): ...`, `📄 docs: ...`
+- [x] Release: delete this plan and tag `v0.1.0` &mdash; `🚀 release: v0.1.0`
 - [x] Pushed to `origin/main` in order. **v0.1 ready**

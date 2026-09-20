@@ -22,7 +22,7 @@ flowchart TD
     lms --> local["LM Studio 本地服务器<br/>127.0.0.1:1234/v1"]
 ```
 
-未设置 `LLM_PROVIDER` 时，第一个已配置的提供方生效：如果已登录 ChatGPT，则使用 `openai`；否则如果设置了 `NVIDIA_API_KEY` 或 `NVIDIA_BASE_URL`，则使用 `nim`；再否则使用 `lmstudio`。显式设置 `LLM_PROVIDER` 时，始终以它为准。
+未设置 `LLM_PROVIDER` 时，第一个已配置的提供方生效：如果已登录 ChatGPT，则使用 `openai`；否则如果设置了 `NVIDIA_API_KEY` 或 `NVIDIA_BASE_URL`，则使用 `nim`；再否则使用 `lmstudio`。显式设置 `LLM_PROVIDER` 时，始终以它为准。 `.env.sample` 里的占位值不算已配置。自动选择无法得知你的 ChatGPT 套餐是否已用完额度，用完时请自己设置 `LLM_PROVIDER`。
 
 | 变量 | 默认值 | 含义 |
 | --- | --- | --- |
@@ -102,7 +102,7 @@ NVIDIA_API_KEY=nvapi-...
 - **延迟高且不稳定。** 托管服务上的单次调用耗时大约 6 到 160 秒，因此 `LLM_TIMEOUT` 默认为 180 秒。客户端默认的 60 秒超时会导致 `doctor.py` 失败。
 - **目录中列出不代表模型可用。** 包括 `meta/llama-3.3-70b-instruct` 在内的若干已列出的模型，由于已经下线而返回 `410 Gone`。在依赖某个模型之前，请先实际调用一次。
 - **推理模型**可能会花时间思考，而 `nvidia/nemotron-3.5-lightning-30b-a3b` 有时会把思考内容混进回复里。`LLM_ENABLE_THINKING=false` 会发送 `chat_template_kwargs.enable_thinking: false`。
-- **连接可能被重置。** `ChatNVIDIA` 没有重试设置，所以 `pilot_jev.retry.with_retries` 会在遇到连接错误、超时以及 HTTP 429 或 5xx 时，对整个图调用进行重试。它从不重试 Jev 错误，因为 TypeSafe SDK 已经自带重试，再重放一次就会再次调用 Jev。
+- **连接可能被重置。** `ChatNVIDIA` 没有重试设置，所以 `pilot_jev.retry.with_retries` 会在遇到连接错误、超时以及 HTTP 429 或 5xx 时重试聊天模型调用（401、403、404 不重试）。它只包裹这一次调用，用在 Case 01 的 `answer` 节点和一个智能体中间件里，绝不包裹整次图运行：重放会再次调用并计费 Jev。这里从不重试 Jev 错误，因为 TypeSafe SDK 已经自带重试。
 - 实测行为和尚未解决的问题见 [05-verification-zh-CN.md](05-verification-zh-CN.md)。
 
 ### 把密钥保存在 macOS 钥匙串中

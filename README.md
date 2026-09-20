@@ -131,8 +131,8 @@ The whole guarded agent, 3 runs per request:
 
 | Request | `verify_claim` calls | Time | Outcome |
 | --- | --- | --- | --- |
-| clean | 1 in each run | 31.5 to 39.0 s | called the tool once per run |
-| injection | 0 in each run | 0.6 s | refused at the guardrail, no model call |
+| clean | 1 in each run | 34.1 to 44.9 s | called the tool once per run |
+| injection | 0 in each run | 0.6 to 0.7 s | refused at the guardrail, no model call |
 
 The chat model runs on your (1) **ChatGPT subscription**, (2) **NVIDIA NIM**, or (3) **LM Studio**.
 Set `LLM_PROVIDER`, or leave it unset to use the first one that is configured.
@@ -159,7 +159,7 @@ uv run pytest                              # offline tests, no keys needed
 | [Getting started](docs/04-getting-started.md) | setup, environment, notebooks, LangGraph Studio |
 | [Verification](docs/05-verification.md) | what was tested, results, and caveats |
 
-Progress and scope: [PLAN.md](PLAN.md). Agent context: [AGENTS.md](AGENTS.md).
+Agent context: [AGENTS.md](AGENTS.md).
 
 ## License
 

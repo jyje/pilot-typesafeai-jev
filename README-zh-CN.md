@@ -116,8 +116,8 @@ flowchart LR
 
 | 请求 | `verify_claim` 调用次数 | 耗时 | 结果 |
 | --- | --- | --- | --- |
-| 正常 | 每次运行 1 次 | 31.5 到 39.0 s | 每次运行都调用了一次工具 |
-| 注入 | 每次运行 0 次 | 0.6 s | 在护栏处被拒绝，未调用模型 |
+| 正常 | 每次运行 1 次 | 34.1 到 44.9 s | 每次运行都调用了一次工具 |
+| 注入 | 每次运行 0 次 | 0.6 到 0.7 s | 在护栏处被拒绝，未调用模型 |
 
 聊天模型可运行在你的（1）**ChatGPT 订阅**、（2）**NVIDIA NIM** 或（3）**LM Studio** 上。设置 `LLM_PROVIDER` 即可指定；不设置时，使用第一个已配置好的提供方。
 
@@ -143,7 +143,7 @@ uv run pytest                              # 离线测试，无需密钥
 | [快速上手](docs/04-getting-started-zh-CN.md) | 安装、环境变量、notebook、LangGraph Studio |
 | [验证](docs/05-verification-zh-CN.md) | 测试了什么、结果和注意事项 |
 
-进度与范围：[PLAN.md](PLAN.md)。智能体上下文：[AGENTS.md](AGENTS.md)。
+智能体上下文：[AGENTS.md](AGENTS.md)。
 
 ## 许可证
 

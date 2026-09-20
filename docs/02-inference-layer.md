@@ -24,8 +24,9 @@ flowchart TD
 ```
 
 When `LLM_PROVIDER` is unset the first configured provider wins: `openai` if you have signed in to
-ChatGPT, else `nim` if `NVIDIA_API_KEY` or `NVIDIA_BASE_URL` is set, else `lmstudio`. Setting
-`LLM_PROVIDER` always overrides that.
+ChatGPT, else `nim` if `NVIDIA_API_KEY` or `NVIDIA_BASE_URL` is set (the placeholder from `.env.sample`
+does not count), else `lmstudio`. Setting `LLM_PROVIDER` always overrides that. Auto mode cannot know
+that your ChatGPT plan has hit its usage limit, so set `LLM_PROVIDER` yourself when it has.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -125,8 +126,10 @@ Things to know:
   sometimes put its thinking into the reply. `LLM_ENABLE_THINKING=false` sends
   `chat_template_kwargs.enable_thinking: false`.
 - **Connections can reset.** `ChatNVIDIA` has no retry setting, so `pilot_jev.retry.with_retries`
-  retries the whole graph call on connection errors, timeouts, and HTTP 429 or 5xx. It never retries
-  Jev errors, because the TypeSafe SDK already retries and a replay would call Jev again.
+  retries the chat model call on connection errors, timeouts, and HTTP 429 or 5xx (not on 401, 403, or
+  404). It wraps only that call, in the Case 01 `answer` node and in an agent middleware, never a whole
+  graph run: a replay would call Jev again and bill it. Jev errors are never retried here, because the
+  TypeSafe SDK already retries them.
 - Measured behavior and open problems are in [05-verification.md](05-verification.md).
 
 ### Keep the key in the macOS keychain

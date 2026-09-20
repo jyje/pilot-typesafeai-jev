@@ -22,7 +22,7 @@ flowchart TD
     lms --> local["LM Studio 로컬 서버<br/>127.0.0.1:1234/v1"]
 ```
 
-`LLM_PROVIDER`를 설정하지 않으면 구성된 프로바이더 중 가장 먼저 해당하는 것이 선택됩니다. ChatGPT에 로그인했다면 `openai`, 그렇지 않고 `NVIDIA_API_KEY` 또는 `NVIDIA_BASE_URL`이 설정되어 있으면 `nim`, 둘 다 아니면 `lmstudio`입니다. `LLM_PROVIDER`를 설정하면 항상 그 값이 우선합니다.
+`LLM_PROVIDER`를 설정하지 않으면 구성된 프로바이더 중 가장 먼저 해당하는 것이 선택됩니다. ChatGPT에 로그인했다면 `openai`, 그렇지 않고 `NVIDIA_API_KEY` 또는 `NVIDIA_BASE_URL`이 설정되어 있으면 `nim`, 둘 다 아니면 `lmstudio`입니다. `LLM_PROVIDER`를 설정하면 항상 그 값이 우선합니다. `.env.sample`의 플레이스홀더 값은 설정된 것으로 치지 않습니다. 자동 선택은 ChatGPT 요금제의 사용량 한도가 소진되었는지 알 수 없으므로, 소진되었다면 `LLM_PROVIDER`를 직접 지정하세요.
 
 | 변수 | 기본값 | 의미 |
 | --- | --- | --- |
@@ -102,7 +102,7 @@ NVIDIA_API_KEY=nvapi-...
 - **지연 시간이 길고 편차가 큽니다.** 호스팅 호출 한 건에 대략 6초에서 160초가 걸렸기 때문에 `LLM_TIMEOUT` 기본값을 180초로 잡았습니다. 클라이언트 기본값인 60초에서는 `doctor.py`가 실패했습니다.
 - **카탈로그에 나온다고 모델이 동작하는 것은 아닙니다.** `meta/llama-3.3-70b-instruct`를 포함해 목록에 있던 여러 모델이 지원 종료로 `410 Gone`을 반환했습니다. 사용하기 전에 모델을 직접 호출해 보세요.
 - **추론 모델**은 thinking에 시간을 쓸 수 있으며, `nvidia/nemotron-3.5-lightning-30b-a3b`는 thinking 내용을 응답에 섞어 내보내는 경우가 있었습니다. `LLM_ENABLE_THINKING=false`를 설정하면 `chat_template_kwargs.enable_thinking: false`를 전송합니다.
-- **연결이 끊길 수 있습니다.** `ChatNVIDIA`에는 재시도 설정이 없으므로 `pilot_jev.retry.with_retries`가 연결 오류, 타임아웃, HTTP 429 또는 5xx가 발생하면 그래프 호출 전체를 재시도합니다. Jev 오류는 재시도하지 않습니다. TypeSafe SDK가 이미 재시도하며, 다시 실행하면 Jev를 또 호출하게 되기 때문입니다.
+- **연결이 끊길 수 있습니다.** `ChatNVIDIA`에는 재시도 설정이 없으므로 `pilot_jev.retry.with_retries`가 연결 오류, 타임아웃, HTTP 429 또는 5xx가 발생하면 채팅 모델 호출을 재시도합니다(401, 403, 404는 재시도하지 않음). Case 01의 `answer` 노드와 에이전트 미들웨어에서 그 호출만 감싸며, 그래프 전체 실행은 감싸지 않습니다. 다시 실행하면 Jev를 또 호출해 과금되기 때문입니다. Jev 오류는 여기서 재시도하지 않습니다. TypeSafe SDK가 이미 재시도합니다.
 - 측정된 동작과 미해결 문제는 [05-verification-ko.md](05-verification-ko.md)에 있습니다.
 
 ### macOS 키체인에 키 보관하기

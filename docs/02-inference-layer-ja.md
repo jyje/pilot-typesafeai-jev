@@ -23,7 +23,7 @@ flowchart TD
     lms --> local["LM Studio ローカルサーバー<br/>127.0.0.1:1234/v1"]
 ```
 
-`LLM_PROVIDER` が未設定の場合は、設定済みの provider のうち先頭のものが選ばれます。ChatGPT にサインイン済みなら `openai`、そうでなく `NVIDIA_API_KEY` または `NVIDIA_BASE_URL` が設定されていれば `nim`、それ以外は `lmstudio` です。`LLM_PROVIDER` を設定した場合は常にそちらが優先されます。
+`LLM_PROVIDER` が未設定の場合は、設定済みの provider のうち先頭のものが選ばれます。ChatGPT にサインイン済みなら `openai`、そうでなく `NVIDIA_API_KEY` または `NVIDIA_BASE_URL` が設定されていれば `nim`、それ以外は `lmstudio` です。`LLM_PROVIDER` を設定した場合は常にそちらが優先されます。 `.env.sample` のプレースホルダーは設定済みとは見なされません。自動選択は ChatGPT プランの利用上限に達したことを知り得ないので、達した場合は `LLM_PROVIDER` を自分で指定してください。
 
 | 変数 | デフォルト | 意味 |
 | --- | --- | --- |
@@ -103,7 +103,7 @@ NVIDIA_API_KEY=nvapi-...
 - **レイテンシは大きく、ばらつきもあります。** ホスト型の単発呼び出しでおよそ 6〜160 秒かかったため、`LLM_TIMEOUT` のデフォルトは 180 秒にしています。クライアントのデフォルトである 60 秒では `doctor.py` が失敗しました。
 - **カタログに載っていても動作するとは限りません。** `meta/llama-3.3-70b-instruct` を含む複数の掲載モデルが、提供終了のため `410 Gone` を返しました。使う前に一度呼び出して確認してください。
 - **推論モデル**は thinking に時間を使うことがあり、`nvidia/nemotron-3.5-lightning-30b-a3b` では thinking の内容が返信に混ざることがありました。`LLM_ENABLE_THINKING=false` を設定すると `chat_template_kwargs.enable_thinking: false` が送信されます。
-- **接続がリセットされることがあります。** `ChatNVIDIA` にはリトライの設定がないため、`pilot_jev.retry.with_retries` が、接続エラー、タイムアウト、HTTP 429 または 5xx の場合にグラフ呼び出し全体をリトライします。Jev のエラーはリトライしません。TypeSafe SDK がすでにリトライしており、グラフ全体を再実行すると Jev をもう一度呼び出してしまうためです。
+- **接続がリセットされることがあります。** `ChatNVIDIA` にはリトライの設定がないため、`pilot_jev.retry.with_retries` が、接続エラー、タイムアウト、HTTP 429 または 5xx の場合にチャットモデルの呼び出しをリトライします（401、403、404 ではリトライしません）。対象は Case 01 の `answer` ノードとエージェントのミドルウェアの中のその呼び出しだけで、グラフ全体の実行は包みません。再実行すると Jev をもう一度呼び出して課金されてしまうためです。Jev のエラーはここではリトライしません。TypeSafe SDK がすでにリトライしています。
 - 計測した挙動と未解決の問題は [05-verification-ja.md](05-verification-ja.md) にまとめています。
 
 ### キーを macOS キーチェーンに保存する
