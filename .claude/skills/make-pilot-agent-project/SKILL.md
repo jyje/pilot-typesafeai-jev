@@ -1,6 +1,6 @@
 ---
 name: make-pilot-agent-project
-description: Bootstrap a jyje-style pilot repo that studies one AI model or product and shows how it fits into LangGraph and Deep Agents, with a switchable inference layer (ChatGPT subscription, NVIDIA NIM, LM Studio). Covers the initial requirements checklist, project init recipe, skills to install, private temp notes, PLAN/TASK checkbox tracking, three-tier verification (pytest, scripts, notebooks), and secrets handling. Use when asked to start a new pilot around a model, SDK, or vendor product with langgraph, deepagents, NIM, or LM Studio, or to reproduce how pilot-typesafeai-jev was set up. Triggers: "pilot-... 만들어줘", "이 모델을 langgraph/deepagents에 적용하는 파일럿", "초기 설정 해줘", "make-pilot-agent-project".
+description: Bootstrap a pilot repo that follows the agreed conventions and studies one AI model or product and shows how it fits into LangGraph and Deep Agents, with a switchable inference layer (ChatGPT subscription, NVIDIA NIM, LM Studio). Covers the initial requirements checklist, project init recipe, skills to install, private temp notes, PLAN/TASK checkbox tracking, three-tier verification (pytest, scripts, notebooks), and secrets handling. Use when asked to start a new pilot around a model, SDK, or vendor product with langgraph, deepagents, NIM, or LM Studio, or to reproduce how pilot-typesafeai-jev was set up. Triggers: "pilot-... 만들어줘", "이 모델을 langgraph/deepagents에 적용하는 파일럿", "초기 설정 해줘", "make-pilot-agent-project".
 ---
 
 # make-pilot-agent-project
@@ -23,7 +23,7 @@ sensible defaults for the rest and say so.
 
 ## 2. Read local before fetching
 
-- Sibling repos and the personal skills repo usually exist under `~/repo/jyje/`. Read them there.
+- Sibling repos and your own skills repo usually exist as local checkouts (for example under `~/repo/<owner>/`). Read them there.
   **Never clone what is already local.** If one is missing, fetch single files with
   `gh api repos/<owner>/<repo>/contents/<path> --jq .content | base64 -d`.
 - Read the vendor's official docs live (`<docs>/llms.txt`, append `.md` to page paths) and obey the
@@ -34,12 +34,12 @@ sensible defaults for the rest and say so.
 ## 3. Scaffold
 
 ```bash
-cd ~/repo/jyje/<repo>                     # repo may already exist with a remote; do not recreate it
+cd ~/repo/<owner>/<repo>                    # repo may already exist with a remote; do not recreate it
 printf 'temp/\n.env\n' >> .gitignore      # then expand to a full Python .gitignore
 
 # Skills: real files in .claude/skills, symlink for other agents
 mkdir -p .claude/skills
-cp -R ~/repo/jyje/skills/centered-readme ~/repo/jyje/skills/git-commit-helper .claude/skills/
+cp -R <skills-repo>/centered-readme <skills-repo>/git-commit-helper .claude/skills/
 ln -s .claude .agents                     # Codex, Hermes, Copilot read .agents
 npx -y skills add <vendor>/skills --skill <skill> --agent claude-code --copy -y
 ```

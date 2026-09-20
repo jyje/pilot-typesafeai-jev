@@ -1,6 +1,6 @@
 # Reference projects
 
-Read these from their local checkouts under `~/repo/jyje/`. Do not clone a repo that is already
+Read these from their local checkouts (for example under `~/repo/<owner>/`). Do not clone a repo that is already
 there. For one that is missing, fetch single files with `gh api`.
 
 | Repo | Look at it for |

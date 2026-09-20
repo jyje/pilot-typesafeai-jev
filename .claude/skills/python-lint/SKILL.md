@@ -5,7 +5,7 @@ description: Lint, format, and type-check Python code with ruff and ty, then run
 
 # Python Lint & Test
 
-jyje's Python projects are uv-managed and require three checks to pass before a
+Python projects that follow this convention are uv-managed and require three checks to pass before a
 change is considered finished: ruff (lint + format), ty (type check), and
 pytest (tests). Skipping any one of them is not acceptable for a "done" change.
 
@@ -61,8 +61,8 @@ exact rule and includes a short reason.
 - Tests live under `tests/`, named `test_*.py`, mirroring the source layout
   they cover.
 - Don't write tests for trivial pass-through code (e.g. a one-line wrapper
-  with no branching) — match effort to actual risk, per jyje's general
-  no-superfluous-abstraction preference.
+  with no branching) — match effort to actual risk, in line with the general
+  no-superfluous-abstraction principle.
 
 ## Notes
 

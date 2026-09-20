@@ -9,7 +9,7 @@ Copy this into `PLAN.md` decisions and fill it in. The right column shows what t
 | 2 | Purpose | Understand Jev, and show use cases with LangGraph and Deep Agents |
 | 3 | Official docs (user-designated) | https://docs.typesafe.ai/introduction/quickstart |
 | 4 | Vendor skill and install method | `typesafe-ai` from `typesafe-ai/skills`, one method only; Claude Code plugin or `npx skills add` |
-| 5 | Personal skills to add | `centered-readme`, `git-commit-helper` from `jyje/skills`, under `.claude/skills/` |
+| 5 | Skills to add | `centered-readme`, `git-commit-helper` from a skills repo, under `.claude/skills/` |
 | 6 | Multi-agent visibility | `ln -s .claude .agents` so Codex, Hermes, Copilot read the same skills |
 | 7 | Inference layers, in priority order | 1 ChatGPT subscription (Codex OAuth), 2 NVIDIA NIM (`langchain-nvidia-ai-endpoints`), 3 LM Studio (OpenAI-compatible) |
 | 8 | Reference projects | see `reference-projects.md`; already local, do not clone |
@@ -25,7 +25,7 @@ Copy this into `PLAN.md` decisions and fill it in. The right column shows what t
 | 14d | Docs style | short README, detail in `docs/`, Mermaid graphs and sequence diagrams |
 | 14e | Quality | code review and optimization after everything works |
 | 15 | Case scope | Case 01 LangGraph routing, Case 02 Deep Agents middleware and tool |
-| 16 | Skill for this recipe | this skill, in the repo and copied to `~/repo/jyje/skills` |
+| 16 | Skill for this recipe | this skill, in the repo and copied to your own skills repo |
 | 17 | Ask about | anything ambiguous, before building |
 
 ## Questions worth asking (and only these kinds)

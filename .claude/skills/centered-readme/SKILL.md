@@ -1,11 +1,11 @@
 ---
 name: centered-readme
-description: Format a README's header as a centered hero block (title, optional logo, tagline, badges, language links) matching the style jyje uses across his own repos (ansible, presentation, hermes-agent-helm, ...). Use when creating a new README from scratch, or asked to restyle/center an existing one.
+description: Format a README's header as a centered hero block (title, optional logo, tagline, badges, language links) following a common pattern for repos you own. Use when creating a new README from scratch, or asked to restyle/center an existing one.
 ---
 
 # Centered README header
 
-jyje's own repos (not forks of someone else's project) share a common README
+Repos you own (not forks of someone else's project) can share a common README
 header pattern: everything above the first real section is wrapped in a
 centered block; the rest of the document stays normally left-aligned.
 
@@ -35,7 +35,7 @@ dive straight into the next heading>
 ## Choosing what to include
 
 - **Logo** — one relevant tech/brand icon. Two related logos can be combined
-  with a "+" between them (see hermes-agent-helm's Helm + Hermes Agent combo).
+  with a "+" between them (for example a Helm + Hermes Agent pair for a chart of that agent).
   Width 96-250px depending on the logo's aspect ratio. Skip it entirely rather
   than inventing a placeholder icon for a project with no obvious single logo.
   Prefer a `raw.githubusercontent.com` URL (pinned to a branch/path in a repo
@@ -50,8 +50,8 @@ dive straight into the next heading>
 - **Language links** — only if the repo genuinely ships more than one
   language's docs (e.g. `README.md` / `README-ko.md`).
 - **After the closing `</div>`** — either dive straight into the next heading
-  (`## Overview` / `## Summary`, see `presentation`), or add a one-line
-  star-ask first (see `ansible`, `hermes-agent-helm`).
+  (`## Overview` / `## Summary`), or add a one-line
+  star-ask first.
 
 ## Steps
 
