@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "routing": "./case01_routing/graph.py:graph",
+    "deepagent": "./case02_deepagents/graph.py:make_graph"
+  },
+  "env": "../.env"
+}
