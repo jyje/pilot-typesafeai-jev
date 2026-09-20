@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from typing import Protocol
 
 from typesafe_sdk import (
     AsyncTypeSafeClient,
@@ -22,6 +23,19 @@ from typesafe_sdk.constants import DEFAULT_MODEL
 from pilot_jev.env import load_env
 
 Question = Choice | Noul | Score
+
+
+class Gateway(Protocol):
+    """What graphs, middleware, and tools need from Jev. `Jev` and the test fakes both satisfy it."""
+
+    @property
+    def model(self) -> str: ...
+
+    def ask(self, state: str | Mapping, questions: Mapping[str, Question]) -> SystemOneResponse: ...
+
+    async def aask(
+        self, state: str | Mapping, questions: Mapping[str, Question]
+    ) -> SystemOneResponse: ...
 
 
 class Jev:

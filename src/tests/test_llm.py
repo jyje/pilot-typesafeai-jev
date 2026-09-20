@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 
 from pilot_jev import llm
@@ -6,6 +8,11 @@ from pilot_jev import llm
 class Recorder:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+
+
+def kwargs_of(model) -> dict:
+    """The factory returns a chat model type; the tests replace it with `Recorder`."""
+    return cast(Recorder, model).kwargs
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +38,7 @@ def test_nim_is_chosen_automatically_when_a_key_is_set(monkeypatch):
     monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
     model = llm.make_chat_model()
     assert isinstance(model, Recorder)
-    assert model.kwargs == {
+    assert kwargs_of(model) == {
         "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "timeout": 180.0,
         "api_key": "nvapi-test",
@@ -42,7 +49,7 @@ def test_nim_passes_key_and_self_hosted_base_url(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "nim")
     monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
     monkeypatch.setenv("NVIDIA_BASE_URL", "http://0.0.0.0:8000/v1")
-    assert llm.make_chat_model().kwargs == {
+    assert kwargs_of(llm.make_chat_model()) == {
         "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "timeout": 180.0,
         "api_key": "nvapi-test",
@@ -52,7 +59,7 @@ def test_nim_passes_key_and_self_hosted_base_url(monkeypatch):
 
 def test_lmstudio_uses_openai_compatible_endpoint(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "lmstudio")
-    kwargs = llm.make_chat_model().kwargs
+    kwargs = kwargs_of(llm.make_chat_model())
     assert kwargs["base_url"] == "http://127.0.0.1:1234/v1"
     assert kwargs["api_key"] == "lm-studio"
     assert kwargs["model"] == "google/gemma-4-e4b"
@@ -61,7 +68,7 @@ def test_lmstudio_uses_openai_compatible_endpoint(monkeypatch):
 def test_model_env_overrides_the_provider_default(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "lmstudio")
     monkeypatch.setenv("LLM_MODEL", "qwen/qwen3-8b")
-    assert llm.make_chat_model().kwargs["model"] == "qwen/qwen3-8b"
+    assert kwargs_of(llm.make_chat_model())["model"] == "qwen/qwen3-8b"
 
 
 def test_unknown_provider_is_rejected(monkeypatch):
@@ -73,14 +80,14 @@ def test_unknown_provider_is_rejected(monkeypatch):
 def test_timeout_is_configurable(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "lmstudio")
     monkeypatch.setenv("LLM_TIMEOUT", "30")
-    assert llm.make_chat_model().kwargs["timeout"] == 30.0
+    assert kwargs_of(llm.make_chat_model())["timeout"] == 30.0
 
 
 def test_thinking_off_is_sent_to_nim_only_when_set(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "nim")
-    assert "model_kwargs" not in llm.make_chat_model().kwargs
+    assert "model_kwargs" not in kwargs_of(llm.make_chat_model())
     monkeypatch.setenv("LLM_ENABLE_THINKING", "false")
-    assert llm.make_chat_model().kwargs["model_kwargs"] == {
+    assert kwargs_of(llm.make_chat_model())["model_kwargs"] == {
         "chat_template_kwargs": {"enable_thinking": False}
     }
 
@@ -122,7 +129,7 @@ def test_openai_uses_the_codex_oauth_model_without_an_api_key(monkeypatch):
     monkeypatch.setattr(codex, "_ChatOpenAICodex", Recorder)
     monkeypatch.setenv("OPENAI_API_KEY", "must-not-be-used")
     model = llm.make_chat_model(provider="openai")
-    assert model.kwargs == {"model": "gpt-5.5", "timeout": 180.0, "max_retries": 2}
+    assert kwargs_of(model) == {"model": "gpt-5.5", "timeout": 180.0, "max_retries": 2}
 
 
 def test_provider_priority_order_is_openai_nim_lmstudio():

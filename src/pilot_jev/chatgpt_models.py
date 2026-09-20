@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 
 import httpx
+from langchain_openai.chat_models.codex import _ChatOpenAICodex
 
 from pilot_jev.llm import chatgpt_signed_in, make_chat_model
 
@@ -37,6 +38,7 @@ def parse_models(payload: dict) -> list[dict[str, str]]:
 def list_models() -> list[dict[str, str]]:
     # Uses the experimental model's private header helper, like the rest of the openai provider.
     model = make_chat_model(provider="openai")
+    assert isinstance(model, _ChatOpenAICodex)
     headers = {
         "Authorization": f"Bearer {model.token_provider.get_access_token()}",
         **model._codex_headers_sync(),

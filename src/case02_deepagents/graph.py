@@ -21,7 +21,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.tools import StructuredTool, ToolException
 from typesafe_sdk import Choice, SystemOneResponse, TypeSafeError
 
-from pilot_jev.jev import Jev
+from pilot_jev.jev import Gateway, Jev
 from pilot_jev.llm import make_chat_model
 from pilot_jev.text import last_user_text
 from pilot_jev.triage import DEFAULT_POLICY, INJECTION_QUESTION
@@ -47,7 +47,7 @@ class JevGuardrailMiddleware(AgentMiddleware):
     """Refuse likely prompt-injection before the agent loop starts."""
 
     def __init__(
-        self, jev: Jev | None = None, *, block_at: float = DEFAULT_POLICY.injection_block
+        self, jev: Gateway | None = None, *, block_at: float = DEFAULT_POLICY.injection_block
     ) -> None:
         super().__init__()
         self._jev = jev or Jev()
@@ -97,7 +97,7 @@ def _verify_result(response: SystemOneResponse) -> str:
     )
 
 
-def build_verify_tool(jev: Jev | None = None) -> StructuredTool:
+def build_verify_tool(jev: Gateway | None = None) -> StructuredTool:
     jev = jev or Jev()
 
     def verify_claim(claim: str, evidence: str) -> str:
@@ -119,7 +119,7 @@ def build_verify_tool(jev: Jev | None = None) -> StructuredTool:
     )
 
 
-def make_agent(llm: BaseChatModel | None = None, jev: Jev | None = None, **kwargs: Any):
+def make_agent(llm: BaseChatModel | None = None, jev: Gateway | None = None, **kwargs: Any):
     """Graph factory for LangGraph Studio; also the entry point for `main.py` and tests."""
     jev = jev or Jev()
     return create_deep_agent(

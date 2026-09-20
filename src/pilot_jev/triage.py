@@ -11,7 +11,7 @@ from typing import Literal
 
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
-from pilot_jev.jev import Jev, Question
+from pilot_jev.jev import Gateway, Question
 
 Route = Literal["answer", "escalate", "review", "refuse"]
 
@@ -98,5 +98,5 @@ def decide(triage: Triage, policy: Policy = DEFAULT_POLICY) -> Route:
     return "answer"
 
 
-async def arun_triage(jev: Jev, message: str) -> Triage:
+async def arun_triage(jev: Gateway, message: str) -> Triage:
     return parse_triage(await jev.aask(message, triage_questions()))

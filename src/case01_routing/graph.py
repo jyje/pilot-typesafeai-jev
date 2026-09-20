@@ -12,12 +12,14 @@ the typed answers into a route. Usage with LangGraph Studio: `uv run langgraph d
 from __future__ import annotations
 
 import asyncio
+from typing import Annotated, TypedDict
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage
-from langgraph.graph import END, START, MessagesState, StateGraph
+from langchain_core.messages import AIMessage, AnyMessage, SystemMessage
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
 
-from pilot_jev.jev import Jev
+from pilot_jev.jev import Gateway, Jev
 from pilot_jev.llm import make_chat_model
 from pilot_jev.text import last_user_text
 from pilot_jev.triage import DEFAULT_POLICY, NO_TEXT, Policy, arun_triage, decide
@@ -36,13 +38,14 @@ CANNED = {
 }
 
 
-class RoutingState(MessagesState):
-    triage: dict | None
-    route: str | None
+class RoutingState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+    triage: dict
+    route: str
 
 
 def build_graph(
-    *, jev: Jev | None = None, llm: BaseChatModel | None = None, policy: Policy | None = None
+    *, jev: Gateway | None = None, llm: BaseChatModel | None = None, policy: Policy | None = None
 ):
     """Build the graph. Backends resolve lazily so importing this module needs no credentials."""
     policy = policy or DEFAULT_POLICY
@@ -77,7 +80,8 @@ def build_graph(
     def pick(state: RoutingState) -> str:
         return state["route"]
 
-    builder = StateGraph(RoutingState)
+    # ty does not yet accept a TypedDict class where langgraph wants its state type var.
+    builder = StateGraph(RoutingState)  # ty: ignore[invalid-argument-type]
     builder.add_node("triage", triage_node)
     builder.add_node("answer", answer_node)
     for route in CANNED:
