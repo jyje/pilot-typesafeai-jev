@@ -1,0 +1,27 @@
+# Private working notes (reference analysis etc.). Never published.
+temp/
+
+# Secrets. .env.sample is the tracked template.
+.env
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# LangGraph dev server cache
+.langgraph_api/
+
+# Playwright / browser automation scratch
+.playwright-mcp/
