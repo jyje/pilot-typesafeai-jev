@@ -27,9 +27,11 @@ notebook = [
 
 [dependency-groups]
 dev = [
+    "nbformat>=5.11.1",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.6.0",
+    "ty>=0.0.82",
 ]
 
 [tool.pytest.ini_options]
@@ -43,5 +45,3 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-# Notebooks put sys.path setup before imports on purpose.
-extend-exclude = ["notebooks"]
