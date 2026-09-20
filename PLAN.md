@@ -88,7 +88,7 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 - [x] `python-lint` skill copied from `jyje/skills` (ruff, ty, pytest before any Python change is done) &mdash; `✨ feat(skills): add python-lint skill`
 - [x] `ty` and `nbformat` added to the dev dependencies, and the notebooks are now linted and formatted by ruff (previously excluded) &mdash; `🔨 build(uv): add ty and nbformat to the dev dependencies`
 - [x] Code passes `ty check`: a `Gateway` protocol replaces the concrete `Jev` type in signatures, the router state is a plain `TypedDict`, tests and notebooks are typed, and the two remaining suppressions carry a reason. All four `python-lint` steps are clean (58 tests) &mdash; `♻️ refactor(types): satisfy ty with a Gateway protocol and typed state`
-- [ ] README `Cases` section shows each case's structure diagram with the repeated-experiment results, `docs/04` and `docs/05` carry the full tables and the sync instructions, in four languages &mdash; `📄 docs(readme): show each case with its structure and results`
+- [x] README `Cases` section shows each case's structure diagram with the repeated-experiment results, `docs/04` and `docs/05` carry the full tables and the sync instructions, in four languages &mdash; `📄 docs(readme): show each case with its structure and results`
 
 ### Quality gate (fixes land in the feature commits above, since nothing is committed yet)
 
