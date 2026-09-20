@@ -21,3 +21,11 @@ def test_last_user_text_picks_the_latest_human_message():
 
 def test_last_user_text_is_empty_without_a_human_message():
     assert last_user_text([AIMessage("only ai")]) == ""
+
+
+def test_plain_strings_inside_list_content_are_kept():
+    message = HumanMessage(
+        ["Hello", {"type": "image_url", "image_url": "x"}, {"type": "text", "text": "there"}]
+    )
+    assert message_text(message) == "Hello\nthere"
+    assert last_user_text([message]) == "Hello\nthere"

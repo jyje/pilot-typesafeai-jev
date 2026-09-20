@@ -12,7 +12,12 @@ def message_text(message: AnyMessage) -> str:
     content = message.content
     if isinstance(content, str):
         return content
-    parts = [b["text"] for b in content if isinstance(b, dict) and b.get("type") == "text"]
+    parts = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(block["text"])
     return "\n".join(parts)
 
 

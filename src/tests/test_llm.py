@@ -3,6 +3,7 @@ from typing import cast
 import pytest
 
 from pilot_jev import llm
+from pilot_jev.llm import chatgpt_signed_in as real_chatgpt_signed_in
 
 
 class Recorder:
@@ -150,3 +151,20 @@ def test_chatgpt_models_are_reduced_to_id_name_and_visibility():
         {"id": "model-a", "name": "Model A", "visibility": "list"},
         {"id": "model-b", "name": "", "visibility": ""},
     ]
+
+
+def test_a_placeholder_nvidia_key_does_not_count_as_configured(monkeypatch):
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    assert llm.auto_provider() == "lmstudio"
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-a-real-looking-key")
+    assert llm.auto_provider() == "nim"
+
+
+def test_an_empty_token_file_is_not_a_sign_in(tmp_path, monkeypatch):
+    token = tmp_path / "chatgpt-auth.json"
+    monkeypatch.setattr(llm, "chatgpt_store_path", lambda: token)
+    assert real_chatgpt_signed_in() is False
+    token.write_text("")
+    assert real_chatgpt_signed_in() is False
+    token.write_text("{}")
+    assert real_chatgpt_signed_in() is True

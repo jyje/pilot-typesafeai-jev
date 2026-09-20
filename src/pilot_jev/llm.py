@@ -21,7 +21,7 @@ from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_openai import ChatOpenAI
 from langchain_openai.chatgpt_oauth import DEFAULT_STORE_PATH
 
-from pilot_jev.env import load_env
+from pilot_jev.env import env_is_set, load_env
 
 PROVIDERS = ("openai", "nim", "lmstudio")  # priority order
 
@@ -41,7 +41,9 @@ def chatgpt_store_path() -> Path:
 
 
 def chatgpt_signed_in() -> bool:
-    return chatgpt_store_path().is_file()
+    """A sign-in exists. It cannot know the plan's usage limit: set LLM_PROVIDER if that is used up."""
+    path = chatgpt_store_path()
+    return path.is_file() and path.stat().st_size > 0
 
 
 def auto_provider() -> str:
@@ -49,7 +51,7 @@ def auto_provider() -> str:
     load_env()
     if chatgpt_signed_in():
         return "openai"
-    if os.getenv("NVIDIA_API_KEY") or os.getenv("NVIDIA_BASE_URL"):
+    if env_is_set("NVIDIA_API_KEY") or os.getenv("NVIDIA_BASE_URL"):
         return "nim"
     return "lmstudio"
 

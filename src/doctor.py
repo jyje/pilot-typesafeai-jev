@@ -13,7 +13,7 @@ import urllib.request
 from langchain_core.messages import HumanMessage
 from typesafe_sdk import Noul
 
-from pilot_jev.env import load_env
+from pilot_jev.env import env_is_set, load_env
 from pilot_jev.jev import Jev
 from pilot_jev.llm import (
     PROVIDERS,
@@ -31,7 +31,6 @@ os.environ["LANGSMITH_TRACING"] = "false"
 
 PASS, FAIL, SKIP = "  [PASS]", "  [FAIL]", "  [SKIP]"
 SEP = "-" * 52
-PLACEHOLDERS = ("apikey_1234", "nvapi-xxxx")
 
 
 def section(title: str) -> None:
@@ -48,8 +47,7 @@ def skip(label: str, why: str) -> None:
 
 
 def is_set(name: str) -> bool:
-    value = os.getenv(name, "")
-    return bool(value) and not value.startswith(PLACEHOLDERS)
+    return env_is_set(name)
 
 
 def env_section(provider: str) -> bool:
