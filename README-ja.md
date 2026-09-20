@@ -39,6 +39,10 @@ flowchart LR
         t -->|不明確| r[review]
         t -->|インジェクション| f[refuse]
     end
+```
+
+```mermaid
+flowchart LR
     subgraph C2["Case 02 · Deep Agent"]
         direction LR
         m2([メッセージ]) --> g{"Jev ガードレール"}
@@ -64,7 +68,7 @@ uv run pytest                              # オフラインテスト（キー�
 
 ## ドキュメント
 
-| | |
+| ドキュメント | 内容 |
 | --- | --- |
 | [Jev の概要](docs/01-jev-overview-ja.md) | Jev が何を返すか、どう問い合わせるか |
 | [推論レイヤー](docs/02-inference-layer-ja.md) | ChatGPT、NVIDIA NIM、LM Studio を 1 つのファクトリーで切り替え |

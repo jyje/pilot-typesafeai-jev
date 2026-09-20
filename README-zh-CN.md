@@ -39,6 +39,10 @@ flowchart LR
         t -->|不明确| r[复核]
         t -->|注入| f[拒绝]
     end
+```
+
+```mermaid
+flowchart LR
     subgraph C2["Case 02 · Deep Agent"]
         direction LR
         m2([消息]) --> g{"Jev 护栏"}
@@ -64,7 +68,7 @@ uv run pytest                              # 离线测试，无需密钥
 
 ## 文档
 
-| | |
+| 文档 | 内容 |
 | --- | --- |
 | [Jev 概览](docs/01-jev-overview-zh-CN.md) | 它返回什么，以及如何向它提问 |
 | [推理层](docs/02-inference-layer-zh-CN.md) | 通过同一个工厂对接 ChatGPT、NVIDIA NIM 和 LM Studio |

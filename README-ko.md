@@ -39,6 +39,10 @@ flowchart LR
         t -->|불분명| r[review]
         t -->|인젝션| f[refuse]
     end
+```
+
+```mermaid
+flowchart LR
     subgraph C2["Case 02 · Deep Agent"]
         direction LR
         m2([메시지]) --> g{"Jev 가드레일"}
@@ -64,7 +68,7 @@ uv run pytest                              # 오프라인 테스트, 키 불필�
 
 ## 문서
 
-| | |
+| 문서 | 다루는 내용 |
 | --- | --- |
 | [Jev 개요](docs/01-jev-overview-ko.md) | Jev가 무엇을 반환하는지, 어떻게 질문하는지 |
 | [추론 계층](docs/02-inference-layer-ko.md) | 하나의 팩토리 뒤에 있는 ChatGPT, NVIDIA NIM, LM Studio |

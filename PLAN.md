@@ -94,6 +94,7 @@ interactive sign-in, so its live checks wait for that (see the checklist).
 - [x] Japanese translation &mdash; `📄 docs(ja): add Japanese README and guides`
 - [x] Simplified Chinese translation &mdash; `📄 docs(zh-cn): add Simplified Chinese README and guides`
 - [x] Agent context: `AGENTS.md`, `CLAUDE.md`, and this plan &mdash; `📄 docs(agents): add agent context and plan`
+- [x] README fixes in all four languages: overview diagram split into one Mermaid block per case (auto layout put Case 02 above Case 01), and the empty header row of the Docs table filled in &mdash; `📄 docs(readme): fix the overview diagram order and the Docs table header`
 
 ### Reusable recipe
 

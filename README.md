@@ -41,6 +41,10 @@ flowchart LR
         t -->|unclear| r[review]
         t -->|injection| f[refuse]
     end
+```
+
+```mermaid
+flowchart LR
     subgraph C2["Case 02 · Deep Agent"]
         direction LR
         m2([message]) --> g{"Jev guardrail"}
@@ -67,7 +71,7 @@ uv run pytest                              # offline tests, no keys needed
 
 ## Docs
 
-| | |
+| Guide | What it covers |
 | --- | --- |
 | [Jev overview](docs/01-jev-overview.md) | what it returns and how to ask it |
 | [Inference layer](docs/02-inference-layer.md) | ChatGPT, NVIDIA NIM, and LM Studio behind one factory |
