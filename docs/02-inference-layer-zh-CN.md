@@ -1,0 +1,134 @@
+# 推理层
+
+Jev 返回的是类型化的判断，因此回复仍然由聊天模型来写。`pilot_jev.llm.make_chat_model` 根据环境变量构建聊天模型，各个用例的代码中完全不涉及具体的提供方。
+
+三种提供方，按优先级排列：
+
+| # | `LLM_PROVIDER` | 后端 | 认证 |
+| --- | --- | --- | --- |
+| 1 | `openai` | 通过 Codex 后端使用 ChatGPT 订阅 | ChatGPT OAuth 登录，无需 API 密钥 |
+| 2 | `nim` | NVIDIA NIM | `NVIDIA_API_KEY` |
+| 3 | `lmstudio` | LM Studio 本地服务器 | 无 |
+
+```mermaid
+flowchart TD
+    case["用例代码"] --> f["make_chat_model()"]
+    f --> sw{"LLM_PROVIDER<br/>未设置 = 第一个已配置的"}
+    sw -->|"1 · openai"| oa["_ChatOpenAICodex<br/>langchain-openai，实验性"]
+    sw -->|"2 · nim"| nim["ChatNVIDIA<br/>langchain-nvidia-ai-endpoints"]
+    sw -->|"3 · lmstudio"| lms["ChatOpenAI<br/>langchain-openai"]
+    oa --> cx["ChatGPT Codex 后端<br/>chatgpt.com/backend-api/codex"]
+    nim --> hosted["NVIDIA API 目录<br/>或自托管 NIM"]
+    lms --> local["LM Studio 本地服务器<br/>127.0.0.1:1234/v1"]
+```
+
+未设置 `LLM_PROVIDER` 时，第一个已配置的提供方生效：如果已登录 ChatGPT，则使用 `openai`；否则如果设置了 `NVIDIA_API_KEY` 或 `NVIDIA_BASE_URL`，则使用 `nim`；再否则使用 `lmstudio`。显式设置 `LLM_PROVIDER` 时，始终以它为准。
+
+| 变量 | 默认值 | 含义 |
+| --- | --- | --- |
+| `LLM_PROVIDER` | 第一个已配置的 | `openai`、`nim` 或 `lmstudio` |
+| `LLM_MODEL` | 因提供方而异 | 模型 ID |
+| `LLM_TIMEOUT` | `180` | 每次请求的超时秒数 |
+| `LLM_ENABLE_THINKING` | 未设置 | `false` 表示对 NIM 推理模型关闭思考 |
+
+## 1. OpenAI 订阅（ChatGPT Codex OAuth）
+
+使用你的 ChatGPT 订阅，而不是 OpenAI API 密钥。它**不是**公开的 `api.openai.com` API：`langchain-openai` 内置了一个实验性的 `_ChatOpenAICodex`，通过 ChatGPT OAuth（PKCE）登录并调用 ChatGPT Codex 后端，思路与 Hermes Agent 的 `openai-codex` 提供方相同。把 OAuth 令牌直接传给 `ChatOpenAI` 是行不通的。
+
+```bash
+uv run python -m pilot_jev.chatgpt_login            # opens a browser
+uv run python -m pilot_jev.chatgpt_login --device   # headless device-code flow
+```
+
+```dotenv
+LLM_PROVIDER=openai
+# LLM_MODEL=gpt-5.5        (default, from the langchain-openai docs, not tested; use a model your plan allows)
+```
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant L as chatgpt_login
+    participant O as auth.openai.com
+    participant S as ~/.langchain/chatgpt-auth.json
+    participant M as _ChatOpenAICodex
+    participant C as ChatGPT Codex 后端
+    You->>L: 运行一次
+    L->>O: OAuth 2.0 + PKCE 登录
+    O-->>L: 访问令牌和刷新令牌
+    L->>S: 保存 (权限 0600)
+    Note over M,S: 之后每次运行
+    M->>S: 读取令牌，过期时刷新
+    M->>C: 携带 Bearer 令牌和 ChatGPT-Account-Id 发起请求
+    C-->>M: 流式回复
+```
+
+需要了解：
+
+- **实验性且非官方。** 相关类是私有的（`_ChatOpenAICodex`），随时可能变化。请仅在你的 OpenAI 账户、订阅方案以及适用的 OpenAI 条款允许使用 ChatGPT 认证的 Codex 访问时才使用，合规责任由你自己承担。对于共享或生产环境，建议改用 API 密钥、Azure OpenAI 或内部网关。
+- 令牌保存在 `~/.langchain/chatgpt-auth.json`，**而不是** `~/.codex/auth.json`。从其他程序刷新 Codex CLI 的令牌可能会破坏 Codex CLI 的会话，因此本仓库从不触碰那个文件。
+- 该后端只支持流式返回。`invoke` 仍会返回一条聚合后的消息。
+- 调用会计入你的 ChatGPT 订阅方案额度。
+
+## 2. NVIDIA NIM
+
+包：`langchain-nvidia-ai-endpoints`，类：`ChatNVIDIA`。不存在名为 `langchain-nvidia-nim` 的包。
+
+```dotenv
+LLM_PROVIDER=nim
+NVIDIA_API_KEY=nvapi-...
+# LLM_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b   (default)
+# NVIDIA_BASE_URL=http://0.0.0.0:8000/v1            (self-hosted NIM)
+```
+
+在 https://build.nvidia.com 获取密钥。我们通过 `ChatNVIDIA` 测试了两个模型，每个都回答了一个普通问题，并发出了一次工具调用：
+
+| 模型 | 对话 | 工具调用 |
+| --- | --- | --- |
+| `nvidia/nemotron-3.5-lightning-30b-a3b`（默认） | 是 | 是 |
+| `z-ai/glm-5.3-flash` | 是 | 是 |
+
+需要了解：
+
+- **延迟高且不稳定。** 托管服务上的单次调用耗时大约 6 到 160 秒，因此 `LLM_TIMEOUT` 默认为 180 秒。客户端默认的 60 秒超时会导致 `doctor.py` 失败。
+- **目录中列出不代表模型可用。** 包括 `meta/llama-3.3-70b-instruct` 在内的若干已列出的模型，由于已经下线而返回 `410 Gone`。在依赖某个模型之前，请先实际调用一次。
+- **推理模型**可能会花时间思考，而 `nvidia/nemotron-3.5-lightning-30b-a3b` 有时会把思考内容混进回复里。`LLM_ENABLE_THINKING=false` 会发送 `chat_template_kwargs.enable_thinking: false`。
+- **连接可能被重置。** `ChatNVIDIA` 没有重试设置，所以 `pilot_jev.retry.with_retries` 会在遇到连接错误、超时以及 HTTP 429 或 5xx 时，对整个图调用进行重试。它从不重试 Jev 错误，因为 TypeSafe SDK 已经自带重试，再重放一次就会再次调用 Jev。
+- 实测行为和尚未解决的问题见 [05-verification-zh-CN.md](05-verification-zh-CN.md)。
+
+### 把密钥保存在 macOS 钥匙串中
+
+```bash
+security add-generic-password -a pilot-typesafeai-jev -s "NVIDIA API Key" -w    # prompts for the value
+NVIDIA_API_KEY="$(security find-generic-password -s 'NVIDIA API Key' -a pilot-typesafeai-jev -w)" \
+  uv run python doctor.py
+```
+
+## 3. LM Studio
+
+LM Studio 提供与 OpenAI 兼容的 API，因此 `ChatOpenAI` 只需指定自定义的 `base_url` 就能与它通信。
+
+```dotenv
+LLM_PROVIDER=lmstudio
+LLM_MODEL=google/gemma-4-e4b
+# LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
+```
+
+1. 从 https://lmstudio.ai 安装 LM Studio，并下载一个支持工具调用的模型。
+2. 启动本地服务器：**Developer**、**Local Server**，状态为 **Running**，或者运行 `lms server start`。
+3. 加载模型时，**上下文长度至少为 16384**（这里使用的是 32768）：`lms load google/gemma-4-e4b --context-length 32768`。
+4. 运行 `uv run python doctor.py`。它会检查服务器是否响应，以及模型是否在列表中。
+
+Deep Agents 会额外加入约 5,800 个 token 的系统提示词，所以默认的 4096 上下文长度在第一次回复之前就会失败。LM Studio 不校验 API 密钥，代码发送的是 `lm-studio`。
+
+## 如何选择
+
+| | OpenAI 订阅 | NVIDIA NIM（托管） | LM Studio |
+| --- | --- | --- | --- |
+| 密钥 | ChatGPT 登录 | `NVIDIA_API_KEY` | 无 |
+| 成本 | 受你的 ChatGPT 订阅方案额度限制 | 按 token 计费，取决于你的方案 | 免费，使用你自己的硬件 |
+| 速度 | 见 [05-verification-zh-CN.md](05-verification-zh-CN.md) | 测试中每次调用 6 到 160 秒 | 取决于硬件和模型 |
+| 网络 | 需要 | 需要 | 聊天模型不需要 |
+| 状态 | 实验性，非官方 | 稳定的客户端 | 稳定的客户端 |
+
+无论哪种配置，Jev 都是托管 API，因此始终需要 `TYPESAFE_API_KEY` 和网络访问。
