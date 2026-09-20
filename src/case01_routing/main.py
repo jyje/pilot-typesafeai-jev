@@ -13,7 +13,6 @@ from langchain_core.messages import HumanMessage
 from case01_routing.graph import graph
 from pilot_jev.env import load_env
 from pilot_jev.llm import model_name, provider_name
-from pilot_jev.retry import with_retries
 from pilot_jev.text import message_text
 
 SAMPLES = [
@@ -26,10 +25,7 @@ SAMPLES = [
 
 
 async def run(message: str) -> None:
-    result = await with_retries(
-        lambda: graph.ainvoke({"messages": [HumanMessage(message)]}),
-        on_retry=lambda n, e: print(f"  retry {n} after {type(e).__name__}"),
-    )
+    result = await graph.ainvoke({"messages": [HumanMessage(message)]})
     t = result["triage"]
     print(f"\n> {message}")
     print(

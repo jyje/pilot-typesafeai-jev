@@ -23,6 +23,7 @@ from typesafe_sdk import Choice, SystemOneResponse, TypeSafeError
 
 from pilot_jev.jev import Gateway, Jev
 from pilot_jev.llm import make_chat_model
+from pilot_jev.retry import with_retries
 from pilot_jev.text import last_user_text
 from pilot_jev.triage import DEFAULT_POLICY, INJECTION_QUESTION
 
@@ -72,6 +73,17 @@ class JevGuardrailMiddleware(AgentMiddleware):
         if not text.strip():
             return None
         return self._verdict(await self._jev.aask(text, {"injection": INJECTION_QUESTION}))
+
+
+class RetryModelCalls(AgentMiddleware):
+    """Retry a failed chat model call, and only that call.
+
+    The guardrail and the tools are not replayed, so Jev is not called again. Async only, like
+    everything else here: use `ainvoke`.
+    """
+
+    async def awrap_model_call(self, request, handler):
+        return await with_retries(lambda: handler(request))
 
 
 def _verify_request(claim: str, evidence: str) -> tuple[dict, dict]:
@@ -126,7 +138,7 @@ def make_agent(llm: BaseChatModel | None = None, jev: Gateway | None = None, **k
         model=llm or make_chat_model(),
         tools=[build_verify_tool(jev)],
         system_prompt=SYSTEM_PROMPT,
-        middleware=[JevGuardrailMiddleware(jev)],
+        middleware=[JevGuardrailMiddleware(jev), RetryModelCalls()],
         **kwargs,
     )
 

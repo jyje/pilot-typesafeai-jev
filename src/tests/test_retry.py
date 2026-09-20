@@ -1,3 +1,4 @@
+import aiohttp
 import pytest
 
 from pilot_jev.retry import with_retries
@@ -69,3 +70,29 @@ async def test_nim_http_503_is_retried_but_403_is_not():
 
     with pytest.raises(Exception, match="403"):
         await with_retries(forbidden, delay=0)
+
+
+def http_error(status: int):
+    return aiohttp.ClientResponseError(request_info=None, history=(), status=status)  # ty: ignore[invalid-argument-type]
+
+
+async def test_permanent_http_errors_are_not_retried_but_busy_ones_are():
+    calls = []
+
+    async def not_found():
+        calls.append(1)
+        raise http_error(404)
+
+    with pytest.raises(aiohttp.ClientResponseError):
+        await with_retries(not_found, delay=0)
+    assert len(calls) == 1
+
+    attempts = []
+
+    async def busy():
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise http_error(503)
+        return "ok"
+
+    assert await with_retries(busy, delay=0) == "ok"

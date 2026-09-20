@@ -108,3 +108,23 @@ async def test_jev_failure_inside_the_tool_reaches_the_model_as_text():
     tool = build_verify_tool(DownJev())
     out = await tool.ainvoke({"claim": "c", "evidence": "e"})
     assert "could not verify" in out
+
+
+async def test_retry_middleware_retries_only_the_model_call(monkeypatch):
+    from case02_deepagents.graph import RetryModelCalls
+
+    async def no_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr("pilot_jev.retry.asyncio.sleep", no_sleep)
+    calls = []
+
+    async def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            raise TimeoutError("read timed out")
+        return "response"
+
+    result = await RetryModelCalls().awrap_model_call("request", handler)
+    assert result == "response"
+    assert len(calls) == 2

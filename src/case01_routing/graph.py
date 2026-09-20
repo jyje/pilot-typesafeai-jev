@@ -21,6 +21,7 @@ from langgraph.graph.message import add_messages
 
 from pilot_jev.jev import Gateway, Jev
 from pilot_jev.llm import make_chat_model
+from pilot_jev.retry import with_retries
 from pilot_jev.text import last_user_text
 from pilot_jev.triage import DEFAULT_POLICY, NO_TEXT, Policy, arun_triage, decide
 
@@ -68,7 +69,9 @@ def build_graph(
 
     async def answer_node(state: RoutingState) -> dict:
         system = SystemMessage(SPECIALISTS[state["triage"]["intent"]])
-        reply = await (await chat_model()).ainvoke([system, *state["messages"]])
+        model = await chat_model()
+        # Retry only the chat model call. Replaying the graph would call Jev again.
+        reply = await with_retries(lambda: model.ainvoke([system, *state["messages"]]))
         return {"messages": [reply]}
 
     def canned(route: str):

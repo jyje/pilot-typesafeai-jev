@@ -16,7 +16,6 @@ from langchain_core.messages import HumanMessage
 from case02_deepagents.graph import make_agent
 from pilot_jev.env import load_env
 from pilot_jev.llm import model_name, provider_name
-from pilot_jev.retry import with_retries
 from pilot_jev.text import message_text
 
 SAMPLES = [
@@ -36,10 +35,7 @@ async def main(requests: list[str]) -> None:
     for request in requests:
         print(f"\n> {request}")
         try:
-            result = await with_retries(
-                lambda request=request: agent.ainvoke({"messages": [HumanMessage(request)]}),
-                on_retry=lambda n, e: print(f"  retry {n} after {type(e).__name__}"),
-            )
+            result = await agent.ainvoke({"messages": [HumanMessage(request)]})
         except Exception as exc:  # noqa: BLE001 - keep the demo going past one slow or failed call
             print(f"  FAILED: {type(exc).__name__}: {exc}")
             continue

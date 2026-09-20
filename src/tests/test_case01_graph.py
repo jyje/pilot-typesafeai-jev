@@ -77,3 +77,26 @@ async def test_answer_uses_the_specialist_prompt_for_the_intent():
     jev = FakeJev(intent=intent("technical"), urgency=urgency(0.0), injection=noul(0.0))
     await run(jev, Recorder(messages=iter([])))
     assert "technical support engineer" in seen["system"]
+
+
+async def test_a_transient_chat_model_error_is_retried_without_calling_jev_again(
+    calm_billing, monkeypatch
+):
+    async def no_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr("pilot_jev.retry.asyncio.sleep", no_sleep)
+
+    class FlakyLLM:
+        calls = 0
+
+        async def ainvoke(self, *_args, **_kwargs):
+            FlakyLLM.calls += 1
+            if FlakyLLM.calls == 1:
+                raise ConnectionResetError("reset by peer")
+            return AIMessage("recovered")
+
+    result = await run(calm_billing, FlakyLLM())
+    assert result["messages"][-1].content == "recovered"
+    assert FlakyLLM.calls == 2
+    assert len(calm_billing.calls) == 1  # the triage Jev request was not replayed
