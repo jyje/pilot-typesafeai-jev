@@ -127,3 +127,19 @@ def test_openai_uses_the_codex_oauth_model_without_an_api_key(monkeypatch):
 
 def test_provider_priority_order_is_openai_nim_lmstudio():
     assert llm.PROVIDERS == ("openai", "nim", "lmstudio")
+
+
+def test_chatgpt_models_are_reduced_to_id_name_and_visibility():
+    from pilot_jev.chatgpt_models import parse_models
+
+    payload = {
+        "models": [
+            {"slug": "model-a", "display_name": "Model A", "visibility": "list", "extra": 1},
+            {"id": "model-b"},
+            "not a dict",
+        ]
+    }
+    assert parse_models(payload) == [
+        {"id": "model-a", "name": "Model A", "visibility": "list"},
+        {"id": "model-b", "name": "", "visibility": ""},
+    ]
