@@ -72,7 +72,7 @@ uv run python -m experiments.report                                    # tables,
 The **run mode is a setting**. `experiments/config.toml` chooses `parallel` with a window of 10, and
 `--mode sequential`, `--window N`, or the `EXPERIMENT_MODE` and `EXPERIMENT_WINDOW` variables override it.
 Parallel keeps up to `window` calls in flight and starts the next as soon as one finishes. Sequential
-awaits each call. Both call the same worker, so the mode changes speed and load, not the rows. Every
+awaits each call. Both call the same worker on the same task list. The mode changes when calls are sent, which can change latency and availability, so each row records its `mode` and `window` (every row in this data was collected in parallel mode with a window of 10). Every
 call appends one JSONL row, a stopped run resumes, and `--retry-errors` redoes only infrastructure
 failures (a 429, a 503, a timeout). A reply that failed the schema is what the model answered, so it is
 a result and is never retried. Error messages in the rows are reduced to the exception class, the HTTP
@@ -83,7 +83,7 @@ status, and a few known tags, so no response body or model output is published;
 
 Main stage, first 5 runs of every configuration, 60 messages. Accuracy is the share of scored runs on the
 expected route. **A reply that failed the schema counts as a miss** (33 of 300 for nemotron-3-nano-omni,
-3 for nemotron-3-ultra, 2 for glm-5.3-flash). A call the infrastructure failed (a 429, a 503, a timeout) says
+1 for nemotron-3-ultra, 2 for glm-5.3-flash). A call the infrastructure failed (a 429, a 503, a timeout) says
 nothing about the model, so it is left out and reported: after the reruns, 3 runs of nemotron-3-ultra and
 1 of nemotron-3-nano-omni are missing. Consistency and latency use the usable answers. **Difference** is the configuration's accuracy minus Jev's, taken message by message,
 with a paired 95% bootstrap interval: both engines answered the same messages, so a small steady gap
@@ -98,7 +98,7 @@ shows up even when the two separate intervals overlap. The full tables are in th
 | gpt-6-astra, high | 0.940 | 0.873 to 0.990 | -0.027 (-0.070 to 0.000) | 0.993 | 3.5 s |
 | gpt-6-astra, medium (lowest of ChatGPT) | 0.900 | 0.823 to 0.967 | **-0.067 (-0.127 to -0.017)** | 0.987 | 3.1 s |
 | glm-5.3-flash | 0.903 | 0.830 to 0.967 | **-0.063 (-0.120 to -0.017)** | 0.983 | 19.9 s |
-| nemotron-3-ultra, thinking on | 0.891 | 0.832 to 0.945 | **-0.076 (-0.124 to -0.036)** | 0.939 | 11.9 s |
+| nemotron-3-ultra, thinking on | 0.896 | 0.837 to 0.949 | **-0.071 (-0.118 to -0.031)** | 0.939 | 11.9 s |
 | nemotron-3-nano-omni, thinking on | 0.766 | 0.683 to 0.837 | **-0.201 (-0.271 to -0.137)** | 0.965 | 9.9 s |
 
 Bold means the interval of the difference excludes zero.

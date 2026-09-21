@@ -308,3 +308,33 @@ def test_a_run_that_failed_once_and_then_succeeded_is_not_missing():
     ex = analysis.exclusions(frame(first, rerun, never)).set_index("label")
     assert ex.loc[GPT, "infrastructure_failures"] == 1  # only c02 is missing
     assert ex.loc[GPT, "scored"] == 1
+
+
+def test_a_run_with_a_reclassified_failure_and_a_later_success_is_counted_once():
+    old_failure = rows_for(GPT, "openai", {"c01": [None]}, error="schema")
+    for row in old_failure:
+        row["started_at"] = 1.0
+    later_success = rows_for(GPT, "openai", {"c01": ["answer"]})
+    for row in later_success:
+        row["started_at"] = 2.0
+    df = frame(old_failure, later_success, JEV_ROWS)
+    acc = analysis.accuracy(df).set_index("label")
+    assert acc.loc[GPT, "runs"] == 1  # one logical run, not two
+    assert acc.loc[GPT, "accuracy"] == 1.0
+    ex = analysis.exclusions(df).set_index("label")
+    assert ex.loc[GPT, "scored"] == 1 and ex.loc[GPT, "bad_replies"] == 0
+
+
+def test_terminal_keeps_the_last_usable_attempt_and_falls_back_to_the_last_failure():
+    def attempt(started_at, route, error):
+        row = rows_for(GPT, "openai", {"c01": [route]}, error=error)[0]
+        row["started_at"] = started_at
+        return row
+
+    df = frame([attempt(1.0, "answer", None), attempt(2.0, None, "provider")])
+    (kept,) = analysis.terminal(df).to_dict("records")
+    assert kept["route"] == "answer"  # a later infrastructure failure does not replace a result
+    down = frame([attempt(1.0, None, "provider"), attempt(2.0, None, "timeout")])
+    (fallback,) = analysis.terminal(down).to_dict("records")
+    assert fallback["error_kind"] == "timeout"
+    assert analysis.scored(down).empty

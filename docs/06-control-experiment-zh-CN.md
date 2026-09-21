@@ -43,11 +43,11 @@ uv run python -m experiments.run_experiment --stage stability --from-screen
 uv run python -m experiments.report                                    # 表格、图、parquet
 ```
 
-**运行方式是一项设置。** `experiments/config.toml` 选择窗口为 10 的 `parallel`，可用 `--mode sequential`、`--window N` 或环境变量 `EXPERIMENT_MODE`、`EXPERIMENT_WINDOW` 覆盖。并行方式最多同时保持 `window` 个调用，一个结束就立即开始下一个。顺序方式逐个等待调用。两者调用同一个工作函数，所以运行方式只改变速度和负载，不改变行。每次调用追加一行 JSONL，中断的运行可以续跑，`--retry-errors` 只重做基础设施类失败（429、503、超时）。不符合模式的回复是模型实际给出的答案，因此属于结果，不会重试。行中的错误信息会被精简为异常类、HTTP 状态和少数已知标签，因此不会公开响应正文或模型输出；`python -m experiments.sanitize` 会对旧的行做同样的处理。
+**运行方式是一项设置。** `experiments/config.toml` 选择窗口为 10 的 `parallel`，可用 `--mode sequential`、`--window N` 或环境变量 `EXPERIMENT_MODE`、`EXPERIMENT_WINDOW` 覆盖。并行方式最多同时保持 `window` 个调用，一个结束就立即开始下一个。顺序方式逐个等待调用。两者对同一份任务列表调用同一个工作函数。运行方式会改变发送调用的时间，可能影响延迟和可用性，所以每一行都记录了 `mode` 和 `window`（这份数据中的所有行都是以窗口为 10 的并行方式收集的）。每次调用追加一行 JSONL，中断的运行可以续跑，`--retry-errors` 只重做基础设施类失败（429、503、超时）。不符合模式的回复是模型实际给出的答案，因此属于结果，不会重试。行中的错误信息会被精简为异常类、HTTP 状态和少数已知标签，因此不会公开响应正文或模型输出；`python -m experiments.sanitize` 会对旧的行做同样的处理。
 
 ## 结果
 
-主实验，每个配置的前 5 次运行，60 条消息。准确率是已评分的运行中落在预期路由上的比例。**不符合模式的回复算作答错**（nemotron-3-nano-omni 300 次中有 33 次，nemotron-3-ultra 有 3 次，glm-5.3-flash 有 2 次）。基础设施导致失败的调用（429、503、超时）不说明模型的任何情况，所以被排除并单独报告：重跑之后，nemotron-3-ultra 仍缺 3 次运行，nemotron-3-nano-omni 缺 1 次。一致性和延迟只使用可用的答案。**差值**是配置的准确率减去 Jev 的准确率，按消息逐条计算，并给出配对的 95% bootstrap 区间：两个引擎回答的是同一批消息，所以即使各自的区间重叠，一个小而稳定的差距也能显现出来。完整表格在 [notebook](../src/notebooks/03-case04-structured-control.ipynb) 和 `src/experiments/data/tables/` 中。
+主实验，每个配置的前 5 次运行，60 条消息。准确率是已评分的运行中落在预期路由上的比例。**不符合模式的回复算作答错**（nemotron-3-nano-omni 300 次中有 33 次，nemotron-3-ultra 有 1 次，glm-5.3-flash 有 2 次）。基础设施导致失败的调用（429、503、超时）不说明模型的任何情况，所以被排除并单独报告：重跑之后，nemotron-3-ultra 仍缺 3 次运行，nemotron-3-nano-omni 缺 1 次。一致性和延迟只使用可用的答案。**差值**是配置的准确率减去 Jev 的准确率，按消息逐条计算，并给出配对的 95% bootstrap 区间：两个引擎回答的是同一批消息，所以即使各自的区间重叠，一个小而稳定的差距也能显现出来。完整表格在 [notebook](../src/notebooks/03-case04-structured-control.ipynb) 和 `src/experiments/data/tables/` 中。
 
 | 配置 | 准确率 | 95% 区间 | 与 Jev 的差值（配对 95% 区间） | 一致性 | 中位延迟 |
 | --- | --- | --- | --- | --- | --- |
@@ -57,7 +57,7 @@ uv run python -m experiments.report                                    # 表格�
 | gpt-6-astra，high | 0.940 | 0.873 至 0.990 | -0.027 (-0.070 至 0.000) | 0.993 | 3.5 秒 |
 | gpt-6-astra，medium（ChatGPT 中最低） | 0.900 | 0.823 至 0.967 | **-0.067 (-0.127 至 -0.017)** | 0.987 | 3.1 秒 |
 | glm-5.3-flash | 0.903 | 0.830 至 0.967 | **-0.063 (-0.120 至 -0.017)** | 0.983 | 19.9 秒 |
-| nemotron-3-ultra，开启思考 | 0.891 | 0.832 至 0.945 | **-0.076 (-0.124 至 -0.036)** | 0.939 | 11.9 秒 |
+| nemotron-3-ultra，开启思考 | 0.896 | 0.837 至 0.949 | **-0.071 (-0.118 至 -0.031)** | 0.939 | 11.9 秒 |
 | nemotron-3-nano-omni，开启思考 | 0.766 | 0.683 至 0.837 | **-0.201 (-0.271 至 -0.137)** | 0.965 | 9.9 秒 |
 
 粗体表示差值的区间不包含 0。

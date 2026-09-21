@@ -105,29 +105,32 @@ async def execute(
             repeat=task.repeat,
             started_at=began,
             latency_s=round(time.time() - began, 3),
+            mode=cfg.mode,
+            window=cfg.window,
         )
 
     async def worker(task: Task) -> Record:
         began = time.time()
         try:
             outcome = await engines[task.config.label].classify(task.item.text)
-        except Exception as exc:  # noqa: BLE001 - a failed call is a row, timed as its own call
+            record = base(task, began)
+            record.input_tokens = outcome.input_tokens
+            record.output_tokens = outcome.output_tokens
+            record.reasoning_tokens = outcome.reasoning_tokens
+            if outcome.triage is None:
+                record.error_kind = (outcome.error or "schema:").split(":", 1)[0]
+                record.error = clean_error(record.error_kind, outcome.error)
+                return record
+            triage = outcome.triage
+            record.intent, record.intent_confidence = triage.intent, triage.intent_confidence
+            record.urgency, record.injection = triage.urgency, triage.injection
+            record.route = decide(triage)
+            return record
+        except Exception as exc:  # noqa: BLE001 - anything here is a row, timed as this call
             record = base(task, began)
             record.error_kind = classify_error(exc)
             record.error = clean_error(record.error_kind, f"{type(exc).__name__}: {exc}")
             return record
-        record = base(task, began)
-        record.input_tokens = outcome.input_tokens
-        record.output_tokens = outcome.output_tokens
-        record.reasoning_tokens = outcome.reasoning_tokens
-        if outcome.triage is None:
-            record.error_kind = (outcome.error or "schema:").split(":", 1)[0]
-            record.error = clean_error(record.error_kind, outcome.error)
-            return record
-        t = outcome.triage
-        record.intent, record.intent_confidence = t.intent, t.intent_confidence
-        record.urgency, record.injection, record.route = t.urgency, t.injection, decide(t)
-        return record
 
     async def on_result(task: Task, outcome: Record | BaseException) -> None:
         if isinstance(

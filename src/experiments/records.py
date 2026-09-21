@@ -33,6 +33,8 @@ class Record:
     reasoning_tokens: int | None = None
     error_kind: str | None = None  # "parse", "schema", "timeout", or "provider"
     error: str | None = None
+    mode: str | None = None  # how the run was scheduled: "parallel" or "sequential"
+    window: int | None = None  # calls in flight in parallel mode
 
     @property
     def key(self) -> Key:

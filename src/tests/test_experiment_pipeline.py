@@ -162,13 +162,11 @@ def test_the_dry_run_prints_the_plan_and_writes_nothing(tmp_path, capsys):
     assert "mode=parallel window=10" in text and "tasks=50" in text
 
 
-def test_the_mode_can_be_switched_from_the_command_line(tmp_path, capsys):
+def test_the_mode_can_be_switched_from_the_command_line(capsys):
     exp.main(["--stage", "stability", "--only", "jev", "--dry-run", "--mode", "sequential"])
-    assert (
-        "mode=sequential" in capsys.readouterr().out
-        and "in flight: 1" in capsys.readouterr().out
-        or True
-    )
+    text = capsys.readouterr().out
+    assert "mode=sequential" in text
+    assert "in flight: 1" in text
 
 
 def test_rows_are_valid_json_lines(tmp_path):
@@ -368,3 +366,45 @@ async def test_the_experiment_timeout_reaches_the_chat_model(monkeypatch):
     engine = ChatEngine(matrix.pick(["nemotron-3-ultra-550b-a55b:think_on"])[0], timeout_s=600)
     await engine._model()
     assert seen["timeout"] == 600 and seen["thinking"] is True
+
+
+async def test_rows_record_how_they_were_scheduled(tmp_path):
+    configs = matrix.pick(["gpt-5.6-luna:low"])
+    store = Store(tmp_path / "m.jsonl")
+    tasks = exp.build_tasks("stability", configs, repeats=1)
+    await exp.execute(
+        tasks, engines_for(configs), store, RunConfig(mode="parallel", window=3), progress_every=99
+    )
+    assert {(r["mode"], r["window"]) for r in store.read()} == {("parallel", 3)}
+
+
+async def test_an_error_while_building_the_record_is_timed_as_that_call(tmp_path):
+    import asyncio
+
+    class BadOutcome:
+        input_tokens = output_tokens = reasoning_tokens = None
+        error = None
+
+        @property
+        def triage(self):
+            raise RuntimeError("malformed outcome: secret detail")
+
+    class Engine:
+        async def classify(self, text):
+            await asyncio.sleep(0.05)
+            return BadOutcome()
+
+    configs = matrix.pick(["gpt-5.6-luna:low"])
+    store = Store(tmp_path / "b.jsonl")
+    await asyncio.sleep(0.3)  # the experiment has been running for a while
+    tasks = exp.build_tasks("stability", configs, repeats=1)
+    await exp.execute(
+        tasks,
+        {configs[0].label: Engine()},
+        store,
+        RunConfig(mode="sequential"),
+        progress_every=99,
+    )
+    rows = store.read()
+    assert all(0.04 <= r["latency_s"] < 0.3 for r in rows)
+    assert all(r["error_kind"] == "provider" and "secret" not in r["error"] for r in rows)
