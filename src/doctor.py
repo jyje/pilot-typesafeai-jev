@@ -5,6 +5,7 @@ Usage: uv run python doctor.py
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
@@ -24,6 +25,7 @@ from pilot_jev.llm import (
     model_name,
     provider_name,
 )
+from pilot_jev.retry import with_retries
 
 load_env()
 # Keep LangSmith out of diagnostics runs.
@@ -127,7 +129,10 @@ def llm_section(provider: str) -> bool:
     if provider == "lmstudio" and not lmstudio_reachable():
         return False
     try:
-        reply = make_chat_model().invoke([HumanMessage("Reply with the single word: ok")])
+        chat = make_chat_model()  # built once, outside the retry: a bad setup will not fix itself
+        reply = asyncio.run(
+            with_retries(lambda: chat.ainvoke([HumanMessage("Reply with the single word: ok")]))
+        )
     except Exception as exc:  # noqa: BLE001
         return check("Basic inference", False, f"{type(exc).__name__}: {exc}")
     return check("Basic inference", bool(reply.text), f"reply: {reply.text.strip()[:60]!r}")

@@ -64,6 +64,7 @@ def test_lmstudio_uses_openai_compatible_endpoint(monkeypatch):
     assert kwargs["base_url"] == "http://127.0.0.1:1234/v1"
     assert kwargs["api_key"] == "lm-studio"
     assert kwargs["model"] == "google/gemma-4-e4b"
+    assert kwargs["max_retries"] == 0  # pilot_jev.retry is the only retry owner
 
 
 def test_model_env_overrides_the_provider_default(monkeypatch):
@@ -130,7 +131,7 @@ def test_openai_uses_the_codex_oauth_model_without_an_api_key(monkeypatch):
     monkeypatch.setattr(codex, "_ChatOpenAICodex", Recorder)
     monkeypatch.setenv("OPENAI_API_KEY", "must-not-be-used")
     model = llm.make_chat_model(provider="openai")
-    assert kwargs_of(model) == {"model": "gpt-5.5", "timeout": 180.0, "max_retries": 2}
+    assert kwargs_of(model) == {"model": "gpt-5.5", "timeout": 180.0, "max_retries": 0}
 
 
 def test_provider_priority_order_is_openai_nim_lmstudio():

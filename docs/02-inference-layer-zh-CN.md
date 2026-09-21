@@ -130,6 +130,23 @@ LLM_MODEL=google/gemma-4-e4b
 
 Deep Agents 会额外加入约 5,800 个 token 的系统提示词，所以默认的 4096 上下文长度在第一次回复之前就会失败。LM Studio 不校验 API 密钥，代码发送的是 `lm-studio`。
 
+## 重试
+
+`pilot_jev.retry.with_retries` 是三个后端唯一的重试负责方。一次逻辑上的聊天模型调用最多尝试 3 次（第一次调用加两次
+重试）。ChatGPT 和 LM Studio 的模型以 `max_retries=0` 创建，`ChatNVIDIA` 没有重试设置，所以不会有供应商 SDK 在此之上
+再叠加自己的尝试。如果重新打开供应商的重试，两层会相乘。
+
+- **重试哪些：** 连接错误、超时，以及 NIM 的 HTTP 429、500、502、503、504。对 OpenAI 客户端的错误（ChatGPT 和
+  LM Studio）沿用此前 SDK 的策略：HTTP 408、409、429 和所有 5xx，若带有 `x-should-retry` 头则以它为准。绝不重试
+  400、401、403、404，也不重试表示套餐或配额已用完的 429（`usage_limit_reached`、`insufficient_quota`），因为等待并不能
+  解决这些问题。Jev 的错误不在这里重试，因为 TypeSafe SDK 自己会重试。
+- **等待多久：** 带抖动的指数退避（抖动前为 5 秒、10 秒），上限 60 秒。如果错误带有 `Retry-After` 头（秒数或 HTTP 日期），
+  则以它作为等待时间，同样有上限。
+- **如何观察：** 每次重试都会传给可选的 `on_retry(attempt, error)` 回调，并记录到 `pilot_jev.retry` 日志器，内容是错误
+  类型和 HTTP 状态，不包含错误消息。
+- **适用位置：** Case 01 的 `answer` 节点、Case 02 的 `RetryModelCalls` 中间件，以及 `doctor.py` 的实际调用检查。不会用于
+  整个图或智能体的运行，因为重放会再次调用 Jev。
+
 ## 如何选择
 
 | | OpenAI 订阅 | NVIDIA NIM（托管） | LM Studio |

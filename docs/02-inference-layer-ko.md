@@ -130,6 +130,24 @@ LLM_MODEL=google/gemma-4-e4b
 
 Deep Agents는 시스템 프롬프트를 약 5,800 토큰 추가하기 때문에, 기본값 4096 컨텍스트에서는 첫 응답 전에 실패합니다. LM Studio는 API 키를 검증하지 않으며, 코드는 `lm-studio`를 보냅니다.
 
+## 재시도
+
+`pilot_jev.retry.with_retries`가 세 백엔드 모두의 유일한 재시도 담당입니다. 논리적인 채팅 모델 호출 하나는 최대
+3번 시도합니다(첫 호출과 재시도 2번). ChatGPT와 LM Studio 모델은 `max_retries=0`으로 만들고 `ChatNVIDIA`에는
+재시도 설정이 없으므로, 벤더 SDK가 자체 시도를 더하지 않습니다. 벤더 재시도를 다시 켜면 두 계층이 곱해집니다.
+
+- **재시도 대상:** 연결 오류, 타임아웃, NIM의 HTTP 429, 500, 502, 503, 504. OpenAI 클라이언트 오류(ChatGPT와
+  LM Studio)에는 예전 SDK 정책을 그대로 씁니다. HTTP 408, 409, 429와 모든 5xx이며, `x-should-retry` 헤더가 있으면
+  그것이 우선합니다. 400, 401, 403, 404는 재시도하지 않고, 요금제나 할당량이 소진되었다는 429
+  (`usage_limit_reached`, `insufficient_quota`)도 기다려도 해결되지 않으므로 재시도하지 않습니다. Jev 오류는
+  TypeSafe SDK가 스스로 재시도하므로 여기서는 재시도하지 않습니다.
+- **대기 시간:** 지터를 섞은 지수 백오프(지터 전 기준 5초, 10초)이며 최대 60초입니다. 오류에 `Retry-After` 헤더(초 또는
+  HTTP 날짜)가 있으면 그 값이 대기 시간이 되고, 이것도 최대값으로 제한됩니다.
+- **관찰 방법:** 재시도할 때마다 선택 인자인 `on_retry(attempt, error)` 콜백과 `pilot_jev.retry` 로거에 오류 종류와
+  HTTP 상태가 기록되며, 오류 메시지는 기록하지 않습니다.
+- **적용 위치:** Case 01의 `answer` 노드, Case 02의 `RetryModelCalls` 미들웨어, `doctor.py`의 실제 호출 점검입니다.
+  그래프나 에이전트 실행 전체에는 쓰지 않습니다. 재실행하면 Jev를 다시 호출하기 때문입니다.
+
 ## 선택 기준
 
 | | OpenAI 구독 | NVIDIA NIM (호스팅) | LM Studio |

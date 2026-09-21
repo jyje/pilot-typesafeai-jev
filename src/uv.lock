@@ -1890,6 +1890,7 @@ dependencies = [
     { name = "langchain-nvidia-ai-endpoints" },
     { name = "langchain-openai" },
     { name = "langgraph" },
+    { name = "openai" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "typesafe-sdk" },
@@ -1911,6 +1912,7 @@ studio = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx2" },
     { name = "nbformat" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1932,6 +1934,7 @@ requires-dist = [
     { name = "langgraph-cli", extras = ["inmem"], marker = "extra == 'studio'", specifier = ">=0.4.0" },
     { name = "nbconvert", marker = "extra == 'notebook'", specifier = ">=7.16.0" },
     { name = "nbformat", marker = "extra == 'notebook'", specifier = ">=5.10.0" },
+    { name = "openai", specifier = ">=3.0.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "typesafe-sdk", specifier = ">=0.7.0" },
@@ -1940,6 +1943,7 @@ provides-extras = ["langchain-typesafe", "studio", "notebook"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx2", specifier = ">=2.0.0" },
     { name = "nbformat", specifier = ">=5.11.1" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
