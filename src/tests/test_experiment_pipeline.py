@@ -171,3 +171,9 @@ def test_rows_are_valid_json_lines(tmp_path):
     )
     (line,) = store.path.read_text().splitlines()
     assert json.loads(line)["item_id"] == "c01"
+
+
+def test_exclude_removes_matching_configs_from_the_plan(tmp_path, capsys):
+    argv = ["--stage", "screen", "--exclude", "glm-5.3:", "kimi-k3", "--dry-run"]
+    exp.main([*argv, "--out", str(tmp_path / "x.jsonl")])
+    assert f"configs={len(matrix.ALL) - 2}" in capsys.readouterr().out

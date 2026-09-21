@@ -146,6 +146,7 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     p.add_argument("--stage", choices=list(STAGES), required=True)
     p.add_argument("--only", nargs="*", help="run configs whose label contains any of these")
+    p.add_argument("--exclude", nargs="*", help="skip configs whose label contains any of these")
     p.add_argument("--from-screen", action="store_true", help="main stage: passing configs only")
     p.add_argument("--repeats", type=int, help="override the repeats of the stage")
     p.add_argument("--mode", choices=list(MODES))
@@ -162,6 +163,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     cfg = run_config.load(overrides={"mode": args.mode, "window": args.window})
     store = Store(args.out or DATA / f"{args.stage}.jsonl")
     configs = matrix.pick(args.only)
+    if args.exclude:
+        configs = [c for c in configs if not any(x in c.label for x in args.exclude)]
     if args.from_screen:
         keep = set(passing_labels(Store(DATA / "screen.jsonl").read())) | {matrix.JEV.label}
         configs = [c for c in configs if c.label in keep]

@@ -10,7 +10,7 @@ import asyncio
 from typing import Protocol
 
 from experiments.matrix import EngineConfig
-from pilot_jev.baseline import BaselineOutcome, arun_baseline
+from pilot_jev.baseline import BaselineOutcome, SchemaForm, arun_baseline
 from pilot_jev.jev import Gateway, Jev
 from pilot_jev.llm import make_chat_model
 from pilot_jev.triage import parse_triage, triage_questions
@@ -45,6 +45,8 @@ class ChatEngine:
         self._config = config
         self._timeout_s = timeout_s
         self._method = method
+        # ChatNVIDIA takes a JSON Schema, not a TypedDict. Same schema, derived from the TypedDict.
+        self._schema_form: SchemaForm = "json_schema" if config.engine == "nim" else "typeddict"
         self._chat = None
         self._lock = asyncio.Lock()
 
@@ -64,7 +66,8 @@ class ChatEngine:
     async def classify(self, text: str) -> BaselineOutcome:
         chat = await self._model()
         return await asyncio.wait_for(
-            arun_baseline(chat, text, method=self._method), timeout=self._timeout_s
+            arun_baseline(chat, text, method=self._method, schema_form=self._schema_form),
+            timeout=self._timeout_s,
         )
 
 

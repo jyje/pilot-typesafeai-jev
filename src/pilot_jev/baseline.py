@@ -15,13 +15,18 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, TypedDict, cast
+from typing import Annotated, Any, Literal, TypedDict
 
+from langchain_core.callbacks import UsageMetadataCallbackHandler
+from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.utils.function_calling import convert_to_json_schema
 
 from pilot_jev.retry import with_retries
 from pilot_jev.triage import INJECTION_QUESTION, INTENTS, URGENCY_LEVELS, Triage
+
+SchemaForm = Literal["typeddict", "json_schema"]
 
 
 class OffSchemaError(ValueError):
@@ -94,30 +99,56 @@ def to_triage(parsed: Any) -> Triage:
     )
 
 
-def _usage(raw: Any) -> tuple[int | None, int | None, int | None]:
-    usage = getattr(raw, "usage_metadata", None) or {}
-    details = usage.get("output_token_details") or {}
-    return usage.get("input_tokens"), usage.get("output_tokens"), details.get("reasoning")
+def _usage(handler: UsageMetadataCallbackHandler) -> tuple[int | None, int | None, int | None]:
+    """Token counts summed over the model calls the handler saw. None when nothing was reported."""
+    per_model = list(handler.usage_metadata.values())
+    if not per_model:
+        return None, None, None
+
+    def total(values: list) -> int | None:
+        counted = [int(v) for v in values if v is not None]
+        return sum(counted) if counted else None
+
+    reasoning = [(u.get("output_token_details") or {}).get("reasoning") for u in per_model]
+    return (
+        total([u.get("input_tokens") for u in per_model]),
+        total([u.get("output_tokens") for u in per_model]),
+        total(reasoning),
+    )
+
+
+def json_schema() -> dict:
+    """The same schema as a JSON Schema dict, for providers that do not take a TypedDict."""
+    return convert_to_json_schema(TriageSchema)
 
 
 async def arun_baseline(
-    chat: BaseChatModel, message: str, *, method: str | None = None
+    chat: BaseChatModel,
+    message: str,
+    *,
+    method: str | None = None,
+    schema_form: SchemaForm = "typeddict",
 ) -> BaselineOutcome:
     """Classify one message. A reply that does not fit the schema comes back as an `error`.
 
     Only the chat model call is retried, through `with_retries`. Provider and network errors that
-    survive the retries are raised, so the caller can tell them from a badly formed reply.
+    survive the retries are raised, so the caller can tell them from a badly formed reply. Token
+    counts come from a usage callback because not every provider supports `include_raw`
+    (`ChatNVIDIA` does not). `ChatNVIDIA` also rejects a TypedDict, so `schema_form="json_schema"`
+    hands it the JSON Schema derived from the same TypedDict.
     """
-    kwargs: dict = {"include_raw": True}
-    if method:
-        kwargs["method"] = method
-    structured = chat.with_structured_output(TriageSchema, **kwargs)
+    kwargs: dict = {"method": method} if method else {}
+    schema = json_schema() if schema_form == "json_schema" else TriageSchema
+    structured = chat.with_structured_output(schema, **kwargs)
     messages = [SystemMessage(system_prompt()), HumanMessage(f"<message>\n{message}\n</message>")]
-    result = cast(dict, await with_retries(lambda: structured.ainvoke(messages)))
-    tokens = _usage(result.get("raw"))
-    if result.get("parsing_error") is not None:
-        return BaselineOutcome(None, *tokens, error=f"parse: {result['parsing_error']}"[:200])
+    usage = UsageMetadataCallbackHandler()
     try:
-        return BaselineOutcome(to_triage(result.get("parsed")), *tokens)
+        parsed = await with_retries(
+            lambda: structured.ainvoke(messages, config={"callbacks": [usage]})
+        )
+    except OutputParserException as exc:
+        return BaselineOutcome(None, *_usage(usage), error=f"parse: {exc}"[:200])
+    try:
+        return BaselineOutcome(to_triage(parsed), *_usage(usage))
     except OffSchemaError as exc:
-        return BaselineOutcome(None, *tokens, error=f"schema: {exc}"[:200])
+        return BaselineOutcome(None, *_usage(usage), error=f"schema: {exc}"[:200])

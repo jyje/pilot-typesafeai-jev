@@ -1,9 +1,11 @@
 """The control classifier turns a structured reply into `Triage` and reports a bad reply as data."""
 
 import math
-from typing import ClassVar
 
 import pytest
+from langchain_core.exceptions import OutputParserException
+from langchain_core.messages import AIMessage
+from langchain_core.outputs import ChatGeneration, LLMResult
 
 from pilot_jev.baseline import OffSchemaError, TriageSchema, arun_baseline, system_prompt, to_triage
 from pilot_jev.triage import INTENTS, URGENCY_LEVELS, decide
@@ -11,36 +13,42 @@ from pilot_jev.triage import INTENTS, URGENCY_LEVELS, decide
 GOOD = {"intent": "billing", "intent_confidence": 0.9, "urgency": 1, "injection": False}
 
 
-class RawMessage:
-    usage_metadata: ClassVar[dict] = {
-        "input_tokens": 120,
-        "output_tokens": 30,
-        "output_token_details": {"reasoning": 12},
-    }
-
-
 class FakeStructured:
-    def __init__(self, result: dict) -> None:
-        self.result = result
-        self.messages: list = []
+    """Returns the parsed reply, and reports token usage through the callbacks it was given."""
 
-    async def ainvoke(self, messages):
-        self.messages = messages
-        return self.result
+    def __init__(self, parsed, error: Exception | None = None, usage: bool = True) -> None:
+        self.parsed, self.error, self.usage = parsed, error, usage
+        self.messages: list = []
+        self.config: dict = {}
+
+    async def ainvoke(self, messages, config=None):
+        self.messages, self.config = messages, config or {}
+        if self.usage:
+            message = AIMessage(
+                "x",
+                usage_metadata={
+                    "input_tokens": 120,
+                    "output_tokens": 30,
+                    "total_tokens": 150,
+                    "output_token_details": {"reasoning": 12},
+                },
+                response_metadata={"model_name": "fake"},
+            )
+            for handler in self.config.get("callbacks", []):
+                handler.on_llm_end(LLMResult(generations=[[ChatGeneration(message=message)]]))
+        if self.error:
+            raise self.error
+        return self.parsed
 
 
 class FakeChat:
-    def __init__(self, result: dict) -> None:
-        self.structured = FakeStructured(result)
+    def __init__(self, structured: FakeStructured) -> None:
+        self.structured = structured
         self.asked: dict = {}
 
     def with_structured_output(self, schema, **kwargs):
         self.asked = {"schema": schema, **kwargs}
         return self.structured
-
-
-def reply(parsed=GOOD, error=None) -> dict:
-    return {"raw": RawMessage(), "parsed": parsed, "parsing_error": error}
 
 
 def test_the_prompt_reuses_the_triage_wording():
@@ -86,10 +94,10 @@ def test_a_reply_that_does_not_fit_the_schema_is_rejected(bad):
         to_triage(bad)
 
 
-async def test_the_chat_model_is_asked_for_the_typed_dict_with_raw_output():
-    chat = FakeChat(reply())
+async def test_the_chat_model_is_asked_for_the_typed_dict():
+    chat = FakeChat(FakeStructured(GOOD))
     outcome = await arun_baseline(chat, "I was charged twice")  # ty: ignore[invalid-argument-type]
-    assert chat.asked == {"schema": TriageSchema, "include_raw": True}
+    assert chat.asked == {"schema": TriageSchema}  # no include_raw: ChatNVIDIA lacks it
     system, human = chat.structured.messages
     assert "triage classifier" in system.content
     assert human.content == "<message>\nI was charged twice\n</message>"
@@ -97,33 +105,54 @@ async def test_the_chat_model_is_asked_for_the_typed_dict_with_raw_output():
     assert (outcome.input_tokens, outcome.output_tokens, outcome.reasoning_tokens) == (120, 30, 12)
 
 
+async def test_the_json_schema_form_is_derived_from_the_typed_dict():
+    from pilot_jev.baseline import json_schema
+
+    schema = json_schema()
+    assert schema["type"] == "object"
+    assert set(schema["properties"]) == set(TriageSchema.__annotations__)
+    assert schema["properties"]["intent"]["enum"] == list(INTENTS)
+    chat = FakeChat(FakeStructured(GOOD))
+    await arun_baseline(chat, "hi", schema_form="json_schema")  # ty: ignore[invalid-argument-type]
+    assert chat.asked["schema"] == schema
+
+
 async def test_a_method_is_forwarded_when_given():
-    chat = FakeChat(reply())
+    chat = FakeChat(FakeStructured(GOOD))
     await arun_baseline(chat, "hi", method="function_calling")  # ty: ignore[invalid-argument-type]
     assert chat.asked["method"] == "function_calling"
 
 
-async def test_a_parsing_error_is_data_not_an_exception():
-    chat = FakeChat(reply(parsed=None, error=ValueError("no json")))
+async def test_tokens_are_none_when_the_provider_reports_no_usage():
+    chat = FakeChat(FakeStructured(GOOD, usage=False))
+    outcome = await arun_baseline(chat, "hi")  # ty: ignore[invalid-argument-type]
+    assert outcome.triage is not None
+    assert (outcome.input_tokens, outcome.output_tokens, outcome.reasoning_tokens) == (None,) * 3
+
+
+async def test_an_unparseable_reply_is_data_not_an_exception():
+    chat = FakeChat(FakeStructured(None, error=OutputParserException("no json")))
     outcome = await arun_baseline(chat, "hi")  # ty: ignore[invalid-argument-type]
     assert outcome.triage is None
     assert outcome.error is not None and outcome.error.startswith("parse:")
-    assert outcome.output_tokens == 30
+    assert outcome.output_tokens == 30  # the tokens were spent all the same
+
+
+async def test_a_missing_tool_call_is_a_schema_error():
+    chat = FakeChat(FakeStructured(None))  # some providers return None when no tool was called
+    outcome = await arun_baseline(chat, "hi")  # ty: ignore[invalid-argument-type]
+    assert outcome.triage is None
+    assert outcome.error is not None and outcome.error.startswith("schema:")
 
 
 async def test_an_off_schema_reply_is_data_not_an_exception():
-    chat = FakeChat(reply(parsed={**GOOD, "intent": "sales"}))
+    chat = FakeChat(FakeStructured({**GOOD, "intent": "sales"}))
     outcome = await arun_baseline(chat, "hi")  # ty: ignore[invalid-argument-type]
     assert outcome.triage is None
     assert outcome.error is not None and outcome.error.startswith("schema:")
 
 
 async def test_provider_errors_are_not_swallowed():
-    class Down(FakeStructured):
-        async def ainvoke(self, messages):
-            raise PermissionError("bad key")
-
-    chat = FakeChat(reply())
-    chat.structured = Down(reply())
+    chat = FakeChat(FakeStructured(None, error=PermissionError("bad key")))
     with pytest.raises(PermissionError):
         await arun_baseline(chat, "hi")  # ty: ignore[invalid-argument-type]
