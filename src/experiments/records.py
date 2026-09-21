@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 Key = tuple[str, str, str, int]  # (stage, engine label, item id, repeat)
+RETRYABLE_KINDS = frozenset({"provider", "timeout"})
 
 
 @dataclass
@@ -59,9 +60,13 @@ class Store:
         return rows
 
     def done(self, *, retry_errors: bool = False) -> set[Key]:
+        """Keys to skip on a rerun. With `retry_errors`, failed calls of the infrastructure kind
+        (`provider` and `timeout`: a 429, a 503, a timeout) count as not done, and a later success
+        for the same key makes it done again. A reply that failed the schema (`parse`, `schema`)
+        is what the model answered, so it is a result and is never retried."""
         keys: set[Key] = set()
         for row in self.read():
-            if retry_errors and row.get("error_kind"):
+            if retry_errors and row.get("error_kind") in RETRYABLE_KINDS:
                 continue
             keys.add((row["stage"], row["label"], row["item_id"], row["repeat"]))
         return keys

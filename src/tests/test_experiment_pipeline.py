@@ -182,3 +182,29 @@ def test_exclude_removes_matching_configs_from_the_plan(tmp_path, capsys):
     argv = ["--stage", "screen", "--exclude", "glm-5.3:", "kimi-k3", "--dry-run"]
     exp.main([*argv, "--out", str(tmp_path / "x.jsonl")])
     assert f"configs={len(matrix.ALL) - 2}" in capsys.readouterr().out
+
+
+def test_retry_errors_redoes_infrastructure_failures_but_not_bad_replies(tmp_path):
+    import asyncio
+
+    from experiments.records import Record
+
+    store = Store(tmp_path / "k.jsonl")
+    for item, kind in [
+        ("c01", "provider"),
+        ("c02", "timeout"),
+        ("c03", "schema"),
+        ("c04", "parse"),
+    ]:
+        record = Record("s", "l", "jev", "jev", "-", item, 1, 0.0, 0.5, error_kind=kind, error=kind)
+        asyncio.run(store.append(record))
+    asyncio.run(
+        store.append(Record("s", "l", "jev", "jev", "-", "c05", 1, 0.0, 0.5, route="answer"))
+    )
+    assert {k[2] for k in store.done()} == {"c01", "c02", "c03", "c04", "c05"}
+    assert {k[2] for k in store.done(retry_errors=True)} == {"c03", "c04", "c05"}
+    # a later success for a retried key makes it done again
+    asyncio.run(
+        store.append(Record("s", "l", "jev", "jev", "-", "c01", 1, 0.0, 0.5, route="answer"))
+    )
+    assert "c01" in {k[2] for k in store.done(retry_errors=True)}
