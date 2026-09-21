@@ -183,3 +183,53 @@ def test_every_figure_renders_to_png():
 def test_an_empty_input_gives_an_empty_frame():
     assert analysis.load([_write("")]).empty
     assert dataset.ALL_ITEMS  # the merge source is available
+
+
+def test_trim_repeats_keeps_the_first_n_runs_of_every_config():
+    df = frame(JEV_ROWS, GPT_ROWS)
+    assert set(analysis.trim_repeats(df, 2)["repeat"]) == {1, 2}
+    assert len(analysis.trim_repeats(df, 2)) == len(df) // 2
+
+
+def test_versus_jev_only_calls_a_difference_when_the_intervals_do_not_overlap():
+    table = pd.DataFrame(
+        {
+            "label": [JEV, "a", "b", "c", "d"],
+            "accuracy": [0.8, 0.96, 0.5, 0.75, 0.9],
+            "lo": [0.7, 0.92, 0.4, 0.6, 0.6],
+            "hi": [0.9, 0.99, 0.65, 0.9, 1.0],
+        }
+    )
+    out = analysis.versus_jev(table).set_index("label")
+    assert out.loc["a", "vs_jev"] == "better"  # its lower bound 0.92 is above Jev's upper 0.9
+    assert out.loc["b", "vs_jev"] == "worse"  # its upper bound 0.65 is below Jev's lower 0.7
+    assert out.loc["c", "vs_jev"] == "not distinguishable"
+    assert out.loc["d", "vs_jev"] == "not distinguishable"
+    assert out.loc["b", "difference"] == pytest.approx(-0.3)
+    assert JEV not in out.index
+
+
+def test_versus_jev_without_jev_rows_says_so():
+    table = pd.DataFrame({"label": ["a"], "accuracy": [0.5], "lo": [0.4], "hi": [0.6]})
+    assert analysis.versus_jev(table).iloc[0]["vs_jev"] == "no Jev rows"
+
+
+def test_the_report_script_writes_tables_figures_and_parquet(tmp_path):
+    from experiments import report
+
+    rows = [{**r, "stage": stage} for stage in ("screen", "main") for r in [*JEV_ROWS, *GPT_ROWS]]
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "run.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
+    written = report.build(data, tmp_path / "tables", tmp_path / "images")
+    assert {"screen", "accuracy", "injection", "cost", "results", "figure-accuracy"} <= set(written)
+    assert all(path.is_file() for path in written.values())
+    assert pd.read_parquet(written["results"]).shape[0] == len(rows)
+    assert pd.read_csv(written["accuracy"])["vs_jev"].notna().all()
+
+
+def test_the_report_script_refuses_an_empty_data_directory(tmp_path):
+    from experiments import report
+
+    with pytest.raises(SystemExit):
+        report.build(tmp_path, tmp_path / "t", tmp_path / "i")

@@ -41,6 +41,11 @@ def load(paths: Iterable[Path]) -> pd.DataFrame:
     return df
 
 
+def trim_repeats(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    """Keep repeats 1..n, so engines run a different number of times are compared on equal terms."""
+    return df[df["repeat"] <= n]
+
+
 def valid(df: pd.DataFrame) -> pd.DataFrame:
     return df[df["ok"]]
 
@@ -103,6 +108,28 @@ def accuracy(df: pd.DataFrame, groups: Sequence[str] | None = None) -> pd.DataFr
         mean, lo, hi = bootstrap_ci(g["hit"], g["item_id"])
         rows.append((label, g["engine"].iloc[0], g["short"].iloc[0], len(g), mean, lo, hi))
     return pd.DataFrame(rows, columns=["label", "engine", "short", "runs", "accuracy", "lo", "hi"])
+
+
+def versus_jev(
+    table: pd.DataFrame, value: str = "accuracy", jev_label: str = "jev:jev:-"
+) -> pd.DataFrame:
+    """Label each config as clearly better, clearly worse, or not distinguishable from Jev.
+
+    "Clearly" means the two intervals (columns `lo` and `hi`) do not overlap. Overlapping intervals
+    are not evidence of equality, only of no detected difference at this sample size.
+    """
+    jev = table[table["label"] == jev_label]
+    out = table[table["label"] != jev_label].copy()
+    if jev.empty:
+        out["vs_jev"] = "no Jev rows"
+        return out
+    j = jev.iloc[0]
+    out["vs_jev"] = [
+        "better" if lo > j["hi"] else "worse" if hi < j["lo"] else "not distinguishable"
+        for lo, hi in zip(out["lo"], out["hi"], strict=True)
+    ]
+    out["difference"] = out[value] - j[value]
+    return out
 
 
 def consistency(df: pd.DataFrame) -> pd.DataFrame:
