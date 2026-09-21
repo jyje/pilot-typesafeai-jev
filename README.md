@@ -137,6 +137,16 @@ The whole guarded agent, 3 runs per request:
 The chat model runs on your (1) **ChatGPT subscription**, (2) **NVIDIA NIM**, or (3) **LM Studio**.
 Set `LLM_PROVIDER`, or leave it unset to use the first one that is configured.
 
+### Case 04: a control experiment
+
+Does a chat model with LangChain structured output route as well as Jev? The same three questions, worded
+the same way, go to 4 ChatGPT models at 3 reasoning efforts and to NVIDIA NIM models, and both feed the
+same `decide()` policy. On 60 messages **no configuration was distinguishable from Jev on accuracy**
+(Jev 0.967, the best ChatGPT setting 0.967). Jev was more consistent (1.000 against 0.94 to 0.997) and
+faster (0.6 s against 2.3 s and up). Data, run modes, and limits: [control experiment](docs/06-control-experiment.md).
+
+![Route accuracy of every configuration](docs/images/control-accuracy.png)
+
 ## Quick start
 
 ```bash
@@ -158,6 +168,7 @@ uv run pytest                              # offline tests, no keys needed
 | [Cases](docs/03-cases.md) | graph and sequence diagrams for both cases |
 | [Getting started](docs/04-getting-started.md) | setup, environment, notebooks, LangGraph Studio |
 | [Verification](docs/05-verification.md) | what was tested, results, and caveats |
+| [Control experiment](docs/06-control-experiment.md) | Jev against structured output: design, results, and limits |
 
 Agent context: [AGENTS.md](AGENTS.md).
 

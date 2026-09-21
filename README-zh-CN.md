@@ -121,6 +121,12 @@ flowchart LR
 
 聊天模型可运行在你的（1）**ChatGPT 订阅**、（2）**NVIDIA NIM** 或（3）**LM Studio** 上。设置 `LLM_PROVIDER` 即可指定；不设置时，使用第一个已配置好的提供方。
 
+### Case 04：对照实验
+
+使用 LangChain 结构化输出的聊天模型，路由得和 Jev 一样好吗？同样的三个问题、同样的措辞，交给 4 个 ChatGPT 模型（3 档推理强度）和 NVIDIA NIM 的模型，结果都进入同一个 `decide()` 策略。在 60 条消息上，**没有任何配置在准确率上能与 Jev 区分开**（Jev 0.967，ChatGPT 最好的设置 0.967）。Jev 更一致（1.000 对 0.94 至 0.997），也更快（0.6 秒对 2.3 秒以上）。数据、运行方式和局限见[对照实验](docs/06-control-experiment-zh-CN.md)。
+
+![所有配置的路由准确率](docs/images/control-accuracy.png)
+
 ## 快速开始
 
 ```bash
@@ -142,6 +148,7 @@ uv run pytest                              # 离线测试，无需密钥
 | [用例](docs/03-cases-zh-CN.md) | 两个用例的流程图和时序图 |
 | [快速上手](docs/04-getting-started-zh-CN.md) | 安装、环境变量、notebook、LangGraph Studio |
 | [验证](docs/05-verification-zh-CN.md) | 测试了什么、结果和注意事项 |
+| [对照实验](docs/06-control-experiment-zh-CN.md) | Jev 与结构化输出的比较：设计、结果、局限 |
 
 智能体上下文：[AGENTS.md](AGENTS.md)。
 

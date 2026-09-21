@@ -123,6 +123,12 @@ flowchart LR
 
 채팅 모델은 (1) **ChatGPT 구독**, (2) **NVIDIA NIM**, (3) **LM Studio** 중 하나에서 실행됩니다. `LLM_PROVIDER`를 설정하거나, 설정하지 않으면 구성된 항목 중 가장 먼저 발견되는 것을 사용합니다.
 
+### Case 04: 대조 실험
+
+LangChain 구조화 출력을 쓰는 채팅 모델도 Jev만큼 잘 라우팅할까요? 같은 세 질문을 같은 문구로 ChatGPT 모델 4개(추론 강도 3단계)와 NVIDIA NIM 모델에 묻고, 결과는 같은 `decide()` 정책에 넣었습니다. 메시지 60개에서 **정확도로 Jev와 구분되는 구성은 없었습니다**(Jev 0.967, ChatGPT 최고 설정 0.967). Jev는 더 일관적이고(1.000 대 0.94~0.997) 더 빨랐습니다(0.6초 대 2.3초 이상). 데이터, 실행 방식, 한계는 [대조 실험](docs/06-control-experiment-ko.md)을 보세요.
+
+![모든 구성의 경로 정확도](docs/images/control-accuracy.png)
+
 ## 빠른 시작
 
 ```bash
@@ -144,6 +150,7 @@ uv run pytest                              # 오프라인 테스트, 키 불필�
 | [케이스](docs/03-cases-ko.md) | 두 케이스의 그래프와 시퀀스 다이어그램 |
 | [시작하기](docs/04-getting-started-ko.md) | 설정, 환경 변수, 노트북, LangGraph Studio |
 | [검증](docs/05-verification-ko.md) | 무엇을 테스트했는지, 결과, 주의 사항 |
+| [대조 실험](docs/06-control-experiment-ko.md) | Jev와 구조화 출력의 비교: 설계, 결과, 한계 |
 
 에이전트용 컨텍스트는 [AGENTS.md](AGENTS.md)를 참고하세요.
 

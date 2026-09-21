@@ -123,6 +123,12 @@ flowchart LR
 
 チャットモデルは、（1）**ChatGPT サブスクリプション**、（2）**NVIDIA NIM**、（3）**LM Studio** のいずれかで動作します。`LLM_PROVIDER` を設定するか、未設定のままにすると、設定済みのもののうち先頭のものが使われます。
 
+### Case 04: 対照実験
+
+LangChain の構造化出力を使うチャットモデルも Jev と同じようにルーティングできるでしょうか。同じ 3 つの質問を同じ文言で、ChatGPT の 4 モデル（推論強度 3 段階）と NVIDIA NIM のモデルに投げ、結果は同じ `decide()` ポリシーに入れました。60 件のメッセージで、**正確さで Jev と区別できる構成はありませんでした**（Jev 0.967、ChatGPT の最良設定 0.967）。Jev はより一貫していて（1.000 対 0.94〜0.997）、より速く（0.6 秒対 2.3 秒以上）ありました。データ、実行方式、限界は[対照実験](docs/06-control-experiment-ja.md)をご覧ください。
+
+![全構成のルート正確さ](docs/images/control-accuracy.png)
+
 ## クイックスタート
 
 ```bash
@@ -144,6 +150,7 @@ uv run pytest                              # オフラインテスト（キー�
 | [ケース](docs/03-cases-ja.md) | 2 つのケースのグラフ図とシーケンス図 |
 | [はじめに](docs/04-getting-started-ja.md) | セットアップ、環境変数、ノートブック、LangGraph Studio |
 | [検証](docs/05-verification-ja.md) | テスト内容、結果、注意点 |
+| [対照実験](docs/06-control-experiment-ja.md) | Jev と構造化出力の比較: 設計、結果、限界 |
 
 エージェント向けコンテキストは [AGENTS.md](AGENTS.md) をご覧ください。
 
