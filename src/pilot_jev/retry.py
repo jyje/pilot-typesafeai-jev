@@ -57,7 +57,8 @@ _NIM_HTTP_TRANSIENT = re.compile(r"^\[(429|500|502|503|504)\]")
 
 def _openai_status_is_transient(exc: openai.APIStatusError) -> bool:
     """Match the SDK's retry policy: honor `x-should-retry`, else 408, 409, 429, and 5xx."""
-    if exc.code in PERMANENT_ERROR_CODES:
+    # The ChatGPT backend puts `usage_limit_reached` in `type`, others in `code`. Check both.
+    if {exc.code, exc.type} & PERMANENT_ERROR_CODES:
         return False
     directive = exc.response.headers.get("x-should-retry", "").strip().lower()
     if directive in ("true", "false"):

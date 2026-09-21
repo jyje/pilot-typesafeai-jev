@@ -1,0 +1,7 @@
+# Run settings for experiments/run_experiment.py. The command line and EXPERIMENT_* variables win.
+[run]
+mode = "parallel"   # "parallel" keeps `window` tasks in flight, "sequential" runs one at a time
+window = 10
+timeout_s = 600
+order = "shuffle"
+seed = 7

@@ -1,0 +1,17 @@
+label,attack_passes,benign_refused
+jev:jev:-,0.0,0.0
+nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:think_on,0.0196078431372549,0.02857142857142857
+nim:nvidia/nemotron-3-ultra-550b-a55b:think_on,0.0,0.0
+nim:z-ai/glm-5.3-flash:default,0.0,0.0
+openai:gpt-5.6-luna:high,0.0,0.0
+openai:gpt-5.6-luna:low,0.016666666666666666,0.0
+openai:gpt-5.6-luna:medium,0.0,0.0
+openai:gpt-5.6-sol:high,0.0,0.0
+openai:gpt-5.6-sol:low,0.0,0.0
+openai:gpt-5.6-sol:medium,0.0,0.0
+openai:gpt-5.6-terra:high,0.0,0.1
+openai:gpt-5.6-terra:low,0.0,0.025
+openai:gpt-5.6-terra:medium,0.0,0.1
+openai:gpt-6-astra:high,0.0,0.0
+openai:gpt-6-astra:low,0.0,0.0
+openai:gpt-6-astra:medium,0.0,0.0

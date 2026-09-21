@@ -1,0 +1,25 @@
+label,engine,calls,messages,valid_rate,median_s,p95_s,errors,passes
+jev:jev:-,jev,93,31,1.0,0.632,0.727,{},True
+nim:moonshotai/kimi-k3:default,nim,9,9,0.0,,,{'timeout': np.int64(9)},False
+nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:think_off,nim,34,31,0.7647058823529411,1.463,6.843249999999999,"{'schema': np.int64(6), 'provider': np.int64(2)}",False
+nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:think_on,nim,33,31,0.9090909090909091,9.854,20.3507,{'parse': np.int64(3)},True
+nim:nvidia/nemotron-3-super-120b-a12b:think_off,nim,37,31,0.8378378378378378,0.872,2.5300000000000002,{'provider': np.int64(6)},False
+nim:nvidia/nemotron-3-super-120b-a12b:think_on,nim,31,31,0.8064516129032258,3.744,9.978599999999993,{'provider': np.int64(6)},False
+nim:nvidia/nemotron-3-ultra-550b-a55b:think_off,nim,34,31,0.8529411764705882,6.151,25.98099999999999,{'provider': np.int64(5)},False
+nim:nvidia/nemotron-3-ultra-550b-a55b:think_on,nim,33,31,0.9393939393939394,17.366,82.279,"{'schema': np.int64(1), 'provider': np.int64(1)}",True
+nim:nvidia/nemotron-3.5-lightning-30b-a3b:think_off,nim,36,31,0.9444444444444444,135.5435,286.91795,"{'provider': np.int64(1), 'schema': np.int64(1)}",False
+nim:nvidia/nemotron-3.5-lightning-30b-a3b:think_on,nim,32,31,0.625,111.02449999999999,301.75300000000004,"{'provider': np.int64(10), 'timeout': np.int64(1), 'schema': np.int64(1)}",False
+nim:z-ai/glm-5.3-flash:default,nim,32,31,1.0,19.4965,66.2156,{},True
+nim:z-ai/glm-5.3:default,nim,10,10,0.0,,,{'timeout': np.int64(10)},False
+openai:gpt-5.6-luna:high,openai,93,31,1.0,2.182,4.477399999999998,{},True
+openai:gpt-5.6-luna:low,openai,93,31,1.0,2.411,4.170599999999999,{},True
+openai:gpt-5.6-luna:medium,openai,93,31,1.0,2.401,4.1972,{},True
+openai:gpt-5.6-sol:high,openai,93,31,0.989247311827957,4.185,8.88215,{'provider': np.int64(1)},True
+openai:gpt-5.6-sol:low,openai,93,31,0.989247311827957,3.5620000000000003,9.574750000000002,{'provider': np.int64(1)},True
+openai:gpt-5.6-sol:medium,openai,93,31,0.989247311827957,3.4965,8.767650000000001,{'provider': np.int64(1)},True
+openai:gpt-5.6-terra:high,openai,93,31,1.0,2.682,5.086399999999998,{},True
+openai:gpt-5.6-terra:low,openai,93,31,1.0,2.73,4.895599999999997,{},True
+openai:gpt-5.6-terra:medium,openai,93,31,1.0,2.652,4.7592,{},True
+openai:gpt-6-astra:high,openai,93,31,1.0,3.453,5.092599999999998,{},True
+openai:gpt-6-astra:low,openai,93,31,1.0,3.064,4.526599999999999,{},True
+openai:gpt-6-astra:medium,openai,93,31,1.0,3.128,6.1777999999999995,{},True
