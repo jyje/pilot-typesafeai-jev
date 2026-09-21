@@ -1,0 +1,17 @@
+label,scored,bad_replies,infrastructure_failures
+openai:gpt-5.6-terra:medium,300,0,0
+openai:gpt-5.6-terra:high,300,0,0
+openai:gpt-5.6-sol:low,300,0,0
+openai:gpt-6-astra:high,300,0,0
+openai:gpt-6-astra:medium,300,0,0
+openai:gpt-5.6-sol:high,300,0,0
+openai:gpt-5.6-luna:medium,300,0,0
+openai:gpt-5.6-sol:medium,300,0,0
+openai:gpt-5.6-luna:high,300,0,0
+openai:gpt-6-astra:low,300,0,0
+nim:nvidia/nemotron-3-ultra-550b-a55b:think_on,299,3,3
+openai:gpt-5.6-terra:low,300,0,0
+jev:jev:-,300,0,0
+nim:z-ai/glm-5.3-flash:default,300,2,0
+openai:gpt-5.6-luna:low,300,0,0
+nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:think_on,299,33,1
