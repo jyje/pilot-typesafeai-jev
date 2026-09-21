@@ -249,3 +249,23 @@ def test_the_error_and_hint_explain_the_problem_without_token_values(store):
     assert "secret-access" not in text
     store.write_text(json.dumps(VALID_STORE))
     assert llm.chatgpt_recovery_hint().startswith("Run:")
+
+
+def test_reasoning_effort_is_passed_to_the_codex_model_only_when_given(monkeypatch):
+    from langchain_openai.chat_models import codex
+
+    monkeypatch.setattr(llm, "chatgpt_signed_in", lambda: True)
+    monkeypatch.setattr(codex, "_ChatOpenAICodex", Recorder)
+    assert "reasoning_effort" not in kwargs_of(llm.make_chat_model(provider="openai"))
+    model = llm.make_chat_model(provider="openai", model="m", reasoning_effort="high")
+    assert kwargs_of(model)["reasoning_effort"] == "high"
+
+
+def test_a_thinking_argument_beats_the_environment_for_nim(monkeypatch):
+    monkeypatch.setenv("LLM_ENABLE_THINKING", "true")
+    off = kwargs_of(llm.make_chat_model(provider="nim", thinking=False))
+    assert off["model_kwargs"] == {"chat_template_kwargs": {"enable_thinking": False}}
+    from_env = kwargs_of(llm.make_chat_model(provider="nim"))
+    assert from_env["model_kwargs"] == {"chat_template_kwargs": {"enable_thinking": True}}
+    monkeypatch.delenv("LLM_ENABLE_THINKING")
+    assert "model_kwargs" not in kwargs_of(llm.make_chat_model(provider="nim"))

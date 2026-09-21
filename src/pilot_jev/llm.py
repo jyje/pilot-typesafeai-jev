@@ -146,7 +146,18 @@ def lmstudio_base_url() -> str:
     return os.getenv("LMSTUDIO_BASE_URL") or DEFAULT_LMSTUDIO_BASE_URL
 
 
-def make_chat_model(*, provider: str | None = None, model: str | None = None) -> BaseChatModel:
+def make_chat_model(
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    reasoning_effort: str | None = None,
+    thinking: bool | None = None,
+) -> BaseChatModel:
+    """Build the chat model. The two optional arguments override the environment for one model:
+
+    `reasoning_effort` (ChatGPT: low, medium, high, xhigh) and `thinking` (NIM reasoning models:
+    the `enable_thinking` switch). They let an experiment compare reasoning settings side by side.
+    """
     provider = (provider or provider_name()).strip().lower()
     if provider not in PROVIDERS:
         raise ValueError(f"LLM_PROVIDER must be one of {PROVIDERS}, got {provider!r}")
@@ -159,7 +170,10 @@ def make_chat_model(*, provider: str | None = None, model: str | None = None) ->
         from langchain_openai.chat_models.codex import _ChatOpenAICodex
 
         # max_retries=0: pilot_jev.retry.with_retries is the only retry owner (see that module).
-        return _ChatOpenAICodex(model=model, timeout=timeout_seconds(), max_retries=0)
+        codex_kwargs: dict = {"model": model, "timeout": timeout_seconds(), "max_retries": 0}
+        if reasoning_effort:
+            codex_kwargs["reasoning_effort"] = reasoning_effort
+        return _ChatOpenAICodex(**codex_kwargs)
 
     if provider == "nim":
         kwargs: dict = {"model": model, "timeout": timeout_seconds()}
@@ -167,7 +181,9 @@ def make_chat_model(*, provider: str | None = None, model: str | None = None) ->
             kwargs["api_key"] = api_key
         if base_url := os.getenv("NVIDIA_BASE_URL"):
             kwargs["base_url"] = base_url
-        if (thinking := thinking_setting()) is not None:
+        if thinking is None:
+            thinking = thinking_setting()
+        if thinking is not None:
             kwargs["model_kwargs"] = {"chat_template_kwargs": {"enable_thinking": thinking}}
         return ChatNVIDIA(**kwargs)
 
