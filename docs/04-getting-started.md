@@ -94,7 +94,7 @@ calls Jev.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| `Not signed in to ChatGPT` | run `uv run python -m pilot_jev.chatgpt_login` once |
+| `Not signed in to ChatGPT: ...` | run `uv run python -m pilot_jev.chatgpt_login` once. The message says whether the token file is missing, empty, malformed, or incomplete, and auto mode then falls back to NIM or LM Studio |
 | `doctor.py`: `TYPESAFE_API_KEY` not set | put it in the repo-root `.env`, not in `src/` |
 | `410 Gone` from NIM | the model reached end of life. Pick another with `LLM_MODEL` |
 | `403 Forbidden` from NIM | the key cannot run inference. Create a new key at build.nvidia.com |
