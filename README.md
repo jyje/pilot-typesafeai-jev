@@ -141,8 +141,8 @@ Set `LLM_PROVIDER`, or leave it unset to use the first one that is configured.
 
 Does a chat model with LangChain structured output route as well as Jev? The same three questions, worded
 the same way, go to 4 ChatGPT models at 3 reasoning efforts and to NVIDIA NIM models, and both feed the
-same `decide()` policy. On 60 messages **no configuration was distinguishable from Jev on accuracy**
-(Jev 0.967, the best ChatGPT setting 0.967). Jev was more consistent (1.000 against 0.94 to 0.997) and
+same `decide()` policy. On 60 messages **nothing beat Jev on accuracy**
+(Jev 0.967, the best ChatGPT setting 0.967), ten of 15 configurations cannot be told apart from it, and five are lower. Jev was more consistent (1.000 against 0.94 to 0.997) and
 faster (0.6 s against 2.3 s and up). Data, run modes, and limits: [control experiment](docs/06-control-experiment.md).
 
 ![Route accuracy of every configuration](docs/images/control-accuracy.png)
