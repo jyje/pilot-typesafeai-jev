@@ -84,7 +84,7 @@ Skills 位于 `.claude/skills/`。`.agents` 是指向 `.claude` 的符号链接�
 
 | 现象 | 原因与解决办法 |
 | --- | --- |
-| `Not signed in to ChatGPT` | 运行一次 `uv run python -m pilot_jev.chatgpt_login` |
+| `Not signed in to ChatGPT: ...` | 运行一次 `uv run python -m pilot_jev.chatgpt_login`。消息会说明令牌文件是缺失、为空、已损坏还是不完整，此时自动选择会回退到 NIM 或 LM Studio |
 | `doctor.py`：`TYPESAFE_API_KEY` 未设置 | 把它写进仓库根目录的 `.env`，而不是 `src/` 下 |
 | NIM 返回 `410 Gone` | 该模型已下线。用 `LLM_MODEL` 换一个 |
 | NIM 返回 `403 Forbidden` | 该密钥无法运行推理。请在 build.nvidia.com 创建新密钥 |

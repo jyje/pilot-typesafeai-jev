@@ -13,7 +13,10 @@ With `LLM_PROVIDER` unset, the first provider that is configured wins, in that o
 
 from __future__ import annotations
 
+import json
+import math
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from langchain_core.language_models import BaseChatModel
@@ -40,10 +43,69 @@ def chatgpt_store_path() -> Path:
     return DEFAULT_STORE_PATH
 
 
-def chatgpt_signed_in() -> bool:
-    """A sign-in exists. It cannot know the plan's usage limit: set LLM_PROVIDER if that is used up."""
+# Fields the OAuth helper needs to use or refresh a stored token. Values are never read out.
+STORE_TOKEN_FIELDS = ("access_token", "refresh_token")
+
+STORE_HINTS = {
+    "missing": "no sign-in found",
+    "empty": "the token file is empty",
+    "malformed": "the token file is not valid JSON",
+    "incomplete": "the token file lacks a usable access token, refresh token, or expiry",
+}
+
+
+def _usable_expiry(value: object) -> bool:
+    """The helper reads `expires_at` as an ISO timestamp or as seconds since the epoch."""
+    if isinstance(value, bool):
+        return False
+    try:
+        if isinstance(value, str):
+            datetime.fromisoformat(value)
+            return True
+        if isinstance(value, int | float) and math.isfinite(value):
+            datetime.fromtimestamp(value, tz=UTC)
+            return True
+    except (ValueError, OverflowError, OSError):
+        pass
+    return False
+
+
+def chatgpt_store_status() -> str:
+    """`ok`, or why the stored sign-in is unusable: `missing`, `empty`, `malformed`, `incomplete`.
+
+    Only the structure is checked, so no token value reaches an error message or a log.
+    """
     path = chatgpt_store_path()
-    return path.is_file() and path.stat().st_size > 0
+    if not path.is_file():
+        return "missing"
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return "malformed"
+    if not raw.strip():
+        return "empty"
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return "malformed"
+    if not isinstance(data, dict):
+        return "malformed"
+    if not all(isinstance(data.get(f), str) and data[f].strip() for f in STORE_TOKEN_FIELDS):
+        return "incomplete"
+    return "ok" if _usable_expiry(data.get("expires_at")) else "incomplete"
+
+
+def chatgpt_recovery_hint() -> str:
+    """One line for a user whose ChatGPT sign-in is not usable. Safe to print."""
+    status = chatgpt_store_status()
+    why = STORE_HINTS.get(status)
+    prefix = f"{why}. " if why else ""
+    return prefix + "Run: uv run python -m pilot_jev.chatgpt_login"
+
+
+def chatgpt_signed_in() -> bool:
+    """A usable sign-in exists. It cannot see the usage limit: set LLM_PROVIDER if it is used up."""
+    return chatgpt_store_status() == "ok"
 
 
 def auto_provider() -> str:
@@ -92,9 +154,7 @@ def make_chat_model(*, provider: str | None = None, model: str | None = None) ->
 
     if provider == "openai":
         if not chatgpt_signed_in():
-            raise RuntimeError(
-                "Not signed in to ChatGPT. Run: uv run python -m pilot_jev.chatgpt_login"
-            )
+            raise RuntimeError(f"Not signed in to ChatGPT: {chatgpt_recovery_hint()}")
         # Experimental and private in langchain-openai: it may change without notice.
         from langchain_openai.chat_models.codex import _ChatOpenAICodex
 
