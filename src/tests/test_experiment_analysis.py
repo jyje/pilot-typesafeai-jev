@@ -96,14 +96,31 @@ def test_load_adds_expected_routes_and_groups():
     assert df["hit"].all()
 
 
+def screen_frame(label: str, engine: str, latency=1.0, error=None, ids=None) -> list[dict]:
+    ids = ids if ids is not None else [item.id for item in dataset.ITEMS]
+    routes = {i: [None if error else "answer"] for i in ids}
+    return rows_for(label, engine, routes, latency=latency, error=error)
+
+
 def test_availability_reports_validity_speed_and_the_screen_rule():
-    slow = rows_for("nim:m:default", "nim", {"c01": ["answer"] * 10}, latency=90.0)
-    dead = rows_for("nim:n:default", "nim", {"c01": [None] * 10}, latency=1.0, error="timeout")
-    table = analysis.availability(frame(JEV_ROWS, GPT_ROWS, slow, dead))
+    slow = screen_frame("nim:m:default", "nim", latency=90.0)
+    dead = screen_frame("nim:n:default", "nim", error="timeout")
+    partial = screen_frame("nim:p:default", "nim", ids=["c01", "c02"])
+    table = analysis.availability(
+        frame(
+            screen_frame(JEV, "jev", latency=0.5),
+            screen_frame(GPT, "openai", latency=3.0),
+            slow,
+            dead,
+            partial,
+        )
+    )
     assert table.loc[JEV, "passes"] and table.loc[GPT, "passes"]
     assert not table.loc["nim:m:default", "passes"]  # too slow
     assert table.loc["nim:n:default", "valid_rate"] == 0.0
     assert not table.loc["nim:n:default", "passes"]
+    assert not table.loc["nim:p:default", "passes"]  # perfect, but not the whole screen set
+    assert table.loc["nim:p:default", "messages"] == 2
     assert table.loc[GPT, "median_s"] == 3.0
 
 
@@ -261,3 +278,33 @@ def test_the_report_script_refuses_an_empty_data_directory(tmp_path):
 
     with pytest.raises(SystemExit):
         report.build(tmp_path, tmp_path / "t", tmp_path / "i")
+
+
+def test_bad_replies_count_as_misses_and_infrastructure_failures_are_left_out():
+    good = rows_for(GPT, "openai", {"c01": ["answer"] * 4, "c02": ["escalate"] * 4})
+    hard = rows_for(GPT, "openai", {"c03": [None] * 4}, error="schema")  # fails every repeat
+    down = rows_for(GPT, "openai", {"c04": [None] * 4}, error="provider")  # the service was down
+    jev = rows_for(
+        JEV, "jev", {"c01": ["answer"] * 4, "c02": ["escalate"] * 4, "c03": ["refuse"] * 4}
+    )
+    df = frame(good, hard, down, jev)
+    acc = analysis.accuracy(df).set_index("label")
+    # 8 correct runs and 4 schema failures are scored; the 4 provider failures are not.
+    assert acc.loc[GPT, "runs"] == 12
+    assert acc.loc[GPT, "accuracy"] == pytest.approx(8 / 12)
+    assert acc.loc[JEV, "accuracy"] == 1.0
+    ex = analysis.exclusions(df).set_index("label")
+    assert ex.loc[GPT, "scored"] == 12
+    assert ex.loc[GPT, "bad_replies"] == 4 and ex.loc[GPT, "infrastructure_failures"] == 4
+    paired = analysis.paired_versus_jev(df).iloc[0]
+    assert paired["messages"] == 3  # c04 has no scored run, so it is not compared
+    assert paired["difference"] == pytest.approx(-1 / 3)  # the hard message counts against it
+
+
+def test_a_run_that_failed_once_and_then_succeeded_is_not_missing():
+    first = rows_for(GPT, "openai", {"c01": [None]}, error="provider")
+    rerun = rows_for(GPT, "openai", {"c01": ["answer"]})  # same item and repeat, a later success
+    never = rows_for(GPT, "openai", {"c02": [None]}, error="timeout")
+    ex = analysis.exclusions(frame(first, rerun, never)).set_index("label")
+    assert ex.loc[GPT, "infrastructure_failures"] == 1  # only c02 is missing
+    assert ex.loc[GPT, "scored"] == 1

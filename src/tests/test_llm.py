@@ -269,3 +269,15 @@ def test_a_thinking_argument_beats_the_environment_for_nim(monkeypatch):
     assert from_env["model_kwargs"] == {"chat_template_kwargs": {"enable_thinking": True}}
     monkeypatch.delenv("LLM_ENABLE_THINKING")
     assert "model_kwargs" not in kwargs_of(llm.make_chat_model(provider="nim"))
+
+
+def test_a_timeout_argument_beats_llm_timeout_for_every_backend(monkeypatch):
+    from langchain_openai.chat_models import codex
+
+    monkeypatch.setenv("LLM_TIMEOUT", "180")
+    monkeypatch.setattr(llm, "chatgpt_signed_in", lambda: True)
+    monkeypatch.setattr(codex, "_ChatOpenAICodex", Recorder)
+    assert kwargs_of(llm.make_chat_model(provider="openai", timeout=600))["timeout"] == 600
+    assert kwargs_of(llm.make_chat_model(provider="nim", timeout=600))["timeout"] == 600
+    assert kwargs_of(llm.make_chat_model(provider="lmstudio", timeout=600))["timeout"] == 600
+    assert kwargs_of(llm.make_chat_model(provider="nim"))["timeout"] == 180.0

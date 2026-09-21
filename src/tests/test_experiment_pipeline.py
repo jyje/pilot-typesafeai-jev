@@ -130,19 +130,20 @@ async def test_a_rerun_skips_finished_rows_and_can_redo_the_failed_ones(tmp_path
     assert store.done(retry_errors=True) == {t.key for t in tasks}
 
 
-def test_the_screen_rule_uses_validity_and_latency_never_accuracy():
-    def rows(label, n, latency=1.0, error=None, start=0):
-        return [
-            {"label": label, "item_id": f"m{i}", "latency_s": latency, "error_kind": error}
-            for i in range(start, start + n)
-        ]
+SCREEN = [item.id for item in dataset.ITEMS]
 
+
+def screen_rows(label, ids, latency=1.0, error=None):
+    return [{"label": label, "item_id": i, "latency_s": latency, "error_kind": error} for i in ids]
+
+
+def test_the_screen_rule_uses_validity_and_latency_never_accuracy():
     data = (
-        rows("good", 31)
-        + rows("flaky", 25)
-        + rows("flaky", 6, error="provider", start=25)
-        + rows("slow", 31, latency=90.0)
-        + rows("dead", 31, error="timeout")
+        screen_rows("good", SCREEN)
+        + screen_rows("flaky", SCREEN[:25])
+        + screen_rows("flaky", SCREEN[25:], error="provider")
+        + screen_rows("slow", SCREEN, latency=90.0)
+        + screen_rows("dead", SCREEN, error="timeout")
     )
     summary = screen_summary(data)
     assert summary["good"]["passes"] and not summary["slow"]["passes"]
@@ -291,18 +292,34 @@ async def test_a_failed_call_is_timed_as_its_own_duration_not_the_experiment(tmp
 
 
 def test_a_partial_screen_can_fail_a_config_but_never_pass_it():
-    def rows(label, n_messages, latency=1.0, error=None):
-        return [
-            {"label": label, "item_id": f"m{i}", "latency_s": latency, "error_kind": error}
-            for i in range(n_messages)
-        ]
-
-    data = rows("full", 31) + rows("partial", 5) + rows("partial-bad", 5, error="timeout")
+    data = (
+        screen_rows("full", SCREEN)
+        + screen_rows("partial", SCREEN[:5])
+        + screen_rows("partial-bad", SCREEN[:5], error="timeout")
+    )
     summary = screen_summary(data)
     assert summary["full"]["passes"] and summary["full"]["messages"] == 31
     assert not summary["partial"]["passes"]  # perfect, but on too few messages
     assert not summary["partial-bad"]["passes"]
     assert passing_labels(data) == ["full"]
+
+
+def test_the_screen_must_cover_the_actual_screen_messages_not_any_31_ids():
+    main_only = [i.id for i in dataset.ALL_ITEMS[31:]][:29]
+    other = [f"zz{i}" for i in range(31)]
+    mixed = SCREEN[:25] + main_only[:6]  # 31 ids, but six are not screen messages
+    extra = SCREEN + ["zz01"]  # the whole screen plus an unknown id
+    data = (
+        screen_rows("other", other)
+        + screen_rows("mixed", mixed)
+        + screen_rows("extra", extra)
+        + screen_rows("exact", SCREEN)
+    )
+    summary = screen_summary(data)
+    assert summary["other"]["messages"] == 0 and not summary["other"]["passes"]
+    assert summary["mixed"]["messages"] == 25 and not summary["mixed"]["passes"]
+    assert not summary["extra"]["passes"]  # an id that is not a screen message rejects it
+    assert passing_labels(data) == ["exact"]
 
 
 def test_from_screen_applies_the_rule_to_jev_too(tmp_path, monkeypatch, capsys):
@@ -311,12 +328,12 @@ def test_from_screen_applies_the_rule_to_jev_too(tmp_path, monkeypatch, capsys):
         {
             "stage": "screen",
             "label": "openai:gpt-5.6-luna:low",
-            "item_id": f"m{i}",
+            "item_id": i,
             "repeat": 1,
             "latency_s": 1.0,
             "error_kind": None,
         }
-        for i in range(31)
+        for i in SCREEN
     ]
     screen.write_text("\n".join(json.dumps(r) for r in rows))
     monkeypatch.setattr(exp, "DATA", tmp_path)
@@ -324,3 +341,30 @@ def test_from_screen_applies_the_rule_to_jev_too(tmp_path, monkeypatch, capsys):
     text = capsys.readouterr().out
     assert "Jev did not pass the screen" in text
     assert "configs=1 " in text
+
+
+def test_clean_error_never_lets_text_without_a_colon_through():
+    from experiments.records import clean_error
+
+    assert clean_error("provider", "token abc123 failed") == "Error"
+    assert clean_error("provider", "sk-secret") == "Error"
+    assert clean_error("provider", "Exception HTTP 503 ResourceExhausted") == (
+        "Exception HTTP 503 ResourceExhausted"
+    )
+    assert clean_error("provider", "Exception HTTP 503 not-a-known-tag") == "Error"
+    assert clean_error("timeout", "TimeoutError") == "TimeoutError"
+
+
+async def test_the_experiment_timeout_reaches_the_chat_model(monkeypatch):
+    from experiments.engines import ChatEngine
+
+    seen: dict = {}
+
+    def fake_make(**kwargs):
+        seen.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("experiments.engines.make_chat_model", fake_make)
+    engine = ChatEngine(matrix.pick(["nemotron-3-ultra-550b-a55b:think_on"])[0], timeout_s=600)
+    await engine._model()
+    assert seen["timeout"] == 600 and seen["thinking"] is True

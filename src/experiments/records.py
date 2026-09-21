@@ -54,6 +54,7 @@ KNOWN_TAGS = (
 )
 _STATUS = re.compile(r"\[(\d{3})\]|Error code: (\d{3})|HTTP (\d{3})")
 _PARSE = "parse: output was not valid structured data"
+_CLEAN = re.compile(rf"\w+(?: HTTP \d{{3}})?(?: (?:{'|'.join(KNOWN_TAGS)}))*")
 
 
 def clean_error(kind: str | None, text: str | None) -> str | None:
@@ -69,7 +70,8 @@ def clean_error(kind: str | None, text: str | None) -> str | None:
     if kind == "schema":
         return "schema: " + text.removeprefix("schema: ").split(":", 1)[0][:80]
     if ":" not in text:
-        return text  # already clean: a class name, a status, and tags
+        # Already clean only if it has exactly the shape this function writes.
+        return text if _CLEAN.fullmatch(text) else "Error"
     name = text.split(":", 1)[0].strip()
     parts = [name if re.fullmatch(r"\w+", name) else "Error"]
     if match := _STATUS.search(text):

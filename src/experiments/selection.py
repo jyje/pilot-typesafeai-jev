@@ -12,9 +12,12 @@ import statistics
 from collections import defaultdict
 from collections.abc import Iterable
 
+from experiments import dataset
+
 MIN_VALID_RATE = 0.90
 MAX_MEDIAN_LATENCY_S = 60.0
-MIN_SCREEN_MESSAGES = 31  # a configuration must be screened on the whole screen set to pass
+# A configuration must have been screened on exactly the screen messages, all of them, to pass.
+SCREEN_IDS = frozenset(item.id for item in dataset.ITEMS)
 
 
 def screen_summary(rows: Iterable[dict]) -> dict[str, dict]:
@@ -23,7 +26,8 @@ def screen_summary(rows: Iterable[dict]) -> dict[str, dict]:
         grouped[row["label"]].append(row)
     summary = {}
     for label, group in grouped.items():
-        messages = len({r["item_id"] for r in group})
+        seen = {r["item_id"] for r in group}
+        messages = len(seen & SCREEN_IDS)
         valid = [r for r in group if not r.get("error_kind")]
         latencies = [r["latency_s"] for r in valid]
         rate = len(valid) / len(group)
@@ -35,7 +39,7 @@ def screen_summary(rows: Iterable[dict]) -> dict[str, dict]:
             "median_latency_s": median,
             # A few messages can show that a configuration fails, but never that it passes.
             "passes": (
-                messages >= MIN_SCREEN_MESSAGES
+                seen == SCREEN_IDS  # all of the screen messages, and none that are not
                 and rate >= MIN_VALID_RATE
                 and median <= MAX_MEDIAN_LATENCY_S
             ),

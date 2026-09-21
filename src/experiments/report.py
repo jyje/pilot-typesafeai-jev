@@ -67,6 +67,7 @@ def build(data_dir: Path, tables_dir: Path, images_dir: Path) -> dict[str, Path]
         )
         inj = analysis.injection_table(main)
         cost = analysis.cost_table(main)
+        table("exclusions", analysis.exclusions(main))
         table("injection", inj)
         table("cost", cost)
         figure("accuracy", analysis.plot_accuracy(acc, "Route accuracy, first 5 runs, 60 messages"))

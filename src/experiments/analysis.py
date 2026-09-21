@@ -18,9 +18,12 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from experiments import dataset
-from experiments.selection import MAX_MEDIAN_LATENCY_S, MIN_VALID_RATE
+from experiments.selection import MAX_MEDIAN_LATENCY_S, MIN_VALID_RATE, SCREEN_IDS
 
 ROUTES = ["answer", "escalate", "review", "refuse"]
+# A call the infrastructure failed (a 429, a 503, a timeout) says nothing about the model, so it is
+# left out of accuracy and reported. A reply that failed the schema is the model's own miss.
+INFRASTRUCTURE_KINDS = frozenset({"provider", "timeout"})
 
 
 def load(paths: Iterable[Path]) -> pd.DataFrame:
@@ -46,25 +49,58 @@ def trim_repeats(df: pd.DataFrame, n: int) -> pd.DataFrame:
 
 
 def valid(df: pd.DataFrame) -> pd.DataFrame:
+    """Calls that returned a usable answer."""
     return df[df["ok"]]
 
 
+def scored(df: pd.DataFrame) -> pd.DataFrame:
+    """Calls counted in accuracy: usable answers, plus replies that failed the schema (as misses)."""
+    return df[~df["error_kind"].isin(INFRASTRUCTURE_KINDS)]
+
+
+def exclusions(df: pd.DataFrame) -> pd.DataFrame:
+    """Per config: calls scored, replies counted as misses, and runs missing for infrastructure.
+
+    A run is missing when every attempt at it failed for infrastructure reasons. A run that failed
+    once and then succeeded on a rerun is not missing.
+    """
+    rows = []
+    for label, g in df.groupby("label", sort=False):
+        infra = g["error_kind"].isin(INFRASTRUCTURE_KINDS)
+        resolved = g[~infra].groupby(["item_id", "repeat"]).size().index
+        missing = g[infra].groupby(["item_id", "repeat"]).size().index.difference(resolved)
+        rows.append(
+            (
+                label,
+                int((~infra).sum()),
+                int(g["error_kind"].isin({"parse", "schema"}).sum()),
+                len(missing),
+            )
+        )
+    return pd.DataFrame(rows, columns=["label", "scored", "bad_replies", "infrastructure_failures"])
+
+
 def availability(df: pd.DataFrame) -> pd.DataFrame:
-    """Per config: how many calls, how many usable, how fast, and whether it passes the screen."""
+    """Per config: calls, usable share, speed, and whether it passes the screen rule.
+
+    The rule needs the whole screen set of messages, nothing else, at least `MIN_VALID_RATE` usable
+    calls, and a median latency of at most `MAX_MEDIAN_LATENCY_S`. It uses availability, not accuracy.
+    """
     g = df.groupby("label", sort=False)
     out = pd.DataFrame(
         {
             "engine": g["engine"].first(),
             "calls": g.size(),
-            "messages": g["item_id"].nunique(),
+            "messages": g["item_id"].apply(lambda s: len(set(s) & SCREEN_IDS)),
             "valid_rate": g["ok"].mean(),
             "median_s": valid(df).groupby("label")["latency_s"].median(),
             "p95_s": valid(df).groupby("label")["latency_s"].quantile(0.95),
             "errors": g["error_kind"].agg(lambda s: dict(s.dropna().value_counts())),
         }
     )
-    out["passes"] = (out["valid_rate"] >= MIN_VALID_RATE) & (
-        out["median_s"] <= MAX_MEDIAN_LATENCY_S
+    exact = g["item_id"].apply(lambda s: set(s) == SCREEN_IDS)
+    out["passes"] = (
+        exact & (out["valid_rate"] >= MIN_VALID_RATE) & (out["median_s"] <= MAX_MEDIAN_LATENCY_S)
     )
     return out.sort_values(["engine", "label"])
 
@@ -99,8 +135,12 @@ def bootstrap_ci(
 
 
 def accuracy(df: pd.DataFrame, groups: Sequence[str] | None = None) -> pd.DataFrame:
-    """Share of runs whose route is the expected one, per config, with a message-level interval."""
-    v = valid(df)
+    """Share of scored runs on the expected route, per config, with a message-level interval.
+
+    A reply that failed the schema counts as a miss; an infrastructure failure is left out (see
+    `exclusions`).
+    """
+    v = scored(df)
     if groups:
         v = v[v["group"].isin(groups)]
     rows = []
@@ -143,8 +183,8 @@ def paired_versus_jev(
 
 
 def analysis_per_message(df: pd.DataFrame) -> pd.DataFrame:
-    """Share of usable runs on the expected route: one row per message, one column per config."""
-    v = valid(df)
+    """Share of scored runs on the expected route: one row per message, one column per config."""
+    v = scored(df)
     return v.groupby(["item_id", "label"])["hit"].mean().unstack("label")
 
 

@@ -152,16 +152,19 @@ def make_chat_model(
     model: str | None = None,
     reasoning_effort: str | None = None,
     thinking: bool | None = None,
+    timeout: float | None = None,
 ) -> BaseChatModel:
     """Build the chat model. The two optional arguments override the environment for one model:
 
-    `reasoning_effort` (ChatGPT: low, medium, high, xhigh) and `thinking` (NIM reasoning models:
-    the `enable_thinking` switch). They let an experiment compare reasoning settings side by side.
+    `reasoning_effort` (ChatGPT: low, medium, high, xhigh), `thinking` (NIM reasoning models: the
+    `enable_thinking` switch), and `timeout` in seconds (instead of `LLM_TIMEOUT`). They let an
+    experiment compare reasoning settings side by side under its own time limit.
     """
     provider = (provider or provider_name()).strip().lower()
     if provider not in PROVIDERS:
         raise ValueError(f"LLM_PROVIDER must be one of {PROVIDERS}, got {provider!r}")
     model = model or model_name(provider)
+    timeout = timeout if timeout is not None else timeout_seconds()
 
     if provider == "openai":
         if not chatgpt_signed_in():
@@ -170,13 +173,13 @@ def make_chat_model(
         from langchain_openai.chat_models.codex import _ChatOpenAICodex
 
         # max_retries=0: pilot_jev.retry.with_retries is the only retry owner (see that module).
-        codex_kwargs: dict = {"model": model, "timeout": timeout_seconds(), "max_retries": 0}
+        codex_kwargs: dict = {"model": model, "timeout": timeout, "max_retries": 0}
         if reasoning_effort:
             codex_kwargs["reasoning_effort"] = reasoning_effort
         return _ChatOpenAICodex(**codex_kwargs)
 
     if provider == "nim":
-        kwargs: dict = {"model": model, "timeout": timeout_seconds()}
+        kwargs: dict = {"model": model, "timeout": timeout}
         if api_key := os.getenv("NVIDIA_API_KEY"):
             kwargs["api_key"] = api_key
         if base_url := os.getenv("NVIDIA_BASE_URL"):
@@ -192,6 +195,6 @@ def make_chat_model(
         base_url=lmstudio_base_url(),
         # LM Studio does not validate the key, but the OpenAI client insists on one.
         api_key=os.getenv("LMSTUDIO_API_KEY") or "lm-studio",
-        timeout=timeout_seconds(),
+        timeout=timeout,
         max_retries=0,  # pilot_jev.retry.with_retries is the only retry owner
     )

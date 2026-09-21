@@ -60,6 +60,7 @@ class ChatEngine:
                     model=self._config.model,
                     reasoning_effort=self._config.reasoning_effort,
                     thinking=self._config.thinking,
+                    timeout=self._timeout_s,
                 )
             return self._chat
 
