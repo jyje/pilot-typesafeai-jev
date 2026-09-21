@@ -1,6 +1,6 @@
 # 用例
 
-两个用例都位于 `src/` 下，并共用 `pilot_jev/`。
+这些用例都位于 `src/` 下，并共用 `pilot_jev/`。Case 03 不是新的实验，只是对 LangChain 包的基础集成检查。
 
 ## Case 01：Jev 作为 LangGraph 路由器
 
@@ -126,6 +126,30 @@ sequenceDiagram
 
 `make_agent(llm, jev)` 是一个工厂函数，而不是模块级的图，因为构建聊天模型需要凭据。`make_graph()` 是它的零参数 `async` 封装，供 `langgraph.json` 使用，因为后者不接受参数超过两个的工厂函数。它只构建一次智能体，并在工作线程中完成。
 
+## Case 03: LangChain 集成
+
+`langchain-typesafe` 是 LangChain 提供的 Jev 官方集成（alpha，可选 extra）。`TypeSafeClassifier` 是一个
+`Runnable`，接收 `{"state": ..., "questions": ...}`，并返回按 `choices`、`scores`、`nouls` 分组的答案。
+它有自己的 `Choice`、`Score`、`Noul` 和响应类，所以 `pilot_jev/langchain_jev.py` 只转换形状：传入 SDK 的问题，
+答案以 SDK 的 `SystemOneResponse` 返回。`LangChainJev` 满足与 `Jev` 相同的 `Gateway` 协议，因此 triage 代码、
+图和中间件无需修改即可运行。
+
+```bash
+uv run --extra langchain-typesafe python -m case03_langchain.main
+```
+
+这不是新的实验，而是基础集成检查。默认路径仍是官方 SDK，已验证过的结果没有重复运行。对三条消息实际运行了一次，
+两个网关得到相同的路由，置信度相差几个百分点以内。
+
+| 消息 | SDK | LangChain |
+| --- | --- | --- |
+| 重复扣款 | `billing` 1.00，紧急度 0.91，`answer` | `billing` 1.00，紧急度 0.92，`answer` |
+| Stripe 故障三天 | `technical` 0.97，紧急度 2.00，`escalate` | `technical` 0.94，紧急度 2.00，`escalate` |
+| 忽略之前的指令 | 注入 0.99，`refuse` | 注入 0.99，`refuse` |
+
+该包会输出 `LangChainBetaWarning`，同一个包里的实验性中间件（`ModelRouterMiddleware`、
+`AutoModeMiddleware`）这里没有使用。
+
 ## 测试
 
 `uv run pytest` 离线运行。fake Jev 返回真实的 `SystemOneResponse` 对象，因此响应解析确实被测试到了。聊天模型都是 fake，而那些不应调用模型的路由，使用的是一旦被触碰就会抛出异常的模型。
@@ -139,3 +163,4 @@ sequenceDiagram
 | `tests/test_retry.py` | 重试连接错误以及 NIM 的 429/5xx，绝不重试 Jev 错误和真正的 bug |
 | `tests/test_case01_graph.py` | 四条路由、单次扇出调用、非 answer 路由不调用聊天模型、空输入、专家提示词 |
 | `tests/test_case02_deepagents.py` | 中间件的同步与异步、空输入与 NaN、工具结论与 Jev 失败、有无注入时的完整智能体 |
+| `tests/test_langchain_jev.py` | 问题与响应的转换、每次调用一个请求、LangChain 网关上 triage 不变、缺少 extra 时的提示错误 |

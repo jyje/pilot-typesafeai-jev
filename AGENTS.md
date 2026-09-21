@@ -23,9 +23,10 @@ chat model runs on (1) a **ChatGPT subscription**, (2) **NVIDIA NIM**, or (3) **
 docs/                      guides with Mermaid diagrams, EN plus -ko/-ja/-zh-CN twins; docs/images/ has the TypeSafe logos
 temp/                      gitignored private notes, never publish or commit
 src/                       uv app, Python 3.13
-  pilot_jev/               shared code: env, jev gateway, llm factory, chatgpt_login, chatgpt_models, retry, text, triage
+  pilot_jev/               shared code: env, jev gateway, langchain_jev (optional), llm factory, chatgpt_login, chatgpt_models, retry, text, triage
   case01_routing/          Jev as a LangGraph router
   case02_deepagents/       Jev as guardrail middleware and verify tool in a Deep Agent
+  case03_langchain/        the same triage on the official SDK and on `langchain-typesafe`
   notebooks/               executed verification notebooks, plus -ko twins and ko.json
   tests/                   offline pytest suite
   doctor.py                environment and connectivity diagnostics
@@ -42,6 +43,7 @@ uv run pytest                            # offline unit tests
 uv run ruff check --fix . && uv run ruff format . && uv run ty check .   # python-lint skill
 uv run python -m case01_routing.main
 uv run python -m case02_deepagents.main
+uv run --extra langchain-typesafe python -m case03_langchain.main   # optional LangChain integration
 uv run langgraph dev                     # needs --extra studio
 uv run python sync_notebooks_ko.py       # after re-running an English notebook
 ```
@@ -74,8 +76,8 @@ Read the key from the keychain without printing it:
   starting points to evaluate.
 - The Korean notebooks are generated: never edit them by hand. Code and results come from the English
   notebook, Korean Markdown from `src/notebooks/ko.json`. Run `sync_notebooks_ko.py` after changes.
-- Every Jev call goes through the `pilot_jev.jev.Gateway` protocol (implemented by `Jev`) so tests can
-  swap in a fake. Code and tests must pass `ruff check --fix`, `ruff format`, `ty check`, and `pytest`
+- Every Jev call goes through the `pilot_jev.jev.Gateway` protocol (implemented by `Jev` and by the optional
+  `LangChainJev`) so tests can swap in a fake. The SDK stays the default path. Code and tests must pass `ruff check --fix`, `ruff format`, `ty check`, and `pytest`
   (`python-lint` skill). Suppress a finding only with the exact rule and a reason.
 - Model names are account specific. Find them with `python -m pilot_jev.chatgpt_models`, and keep
   account-specific names out of public docs.

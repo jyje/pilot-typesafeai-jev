@@ -1,6 +1,6 @@
 # ケース
 
-どちらのケースも `src/` 配下にあり、`pilot_jev/` を共有します。
+ケースはすべて `src/` 配下にあり、`pilot_jev/` を共有します。Case 03 は新しい実験ではなく、LangChain パッケージの基本的な連携の確認です。
 
 ## Case 01: LangGraph のルーターとしての Jev
 
@@ -126,6 +126,32 @@ sequenceDiagram
 
 `make_agent(llm, jev)` はモジュールレベルのグラフではなくファクトリーです。チャットモデルの構築に認証情報が必要なためです。`make_graph()` は `langgraph.json` 用の引数なしの `async` ラッパーで、`langgraph.json` は 3 つ以上のパラメーターを持つファクトリーを受け付けません。エージェントはワーカースレッドの中で 1 回だけ構築されます。
 
+## Case 03: LangChain 統合
+
+`langchain-typesafe` は LangChain が提供する Jev の公式統合です（アルファ、オプションの extra）。
+`TypeSafeClassifier` は `{"state": ..., "questions": ...}` を受け取り、`choices`、`scores`、`nouls` にまとめた
+答えを返す `Runnable` です。`Choice`、`Score`、`Noul`、レスポンスのクラスは SDK とは別にあるため、
+`pilot_jev/langchain_jev.py` は形を変換するだけです。SDK の質問を渡し、答えは SDK の `SystemOneResponse` で
+返します。`LangChainJev` は `Jev` と同じ `Gateway` プロトコルを満たすので、triage のコード、グラフ、
+ミドルウェアはそのまま動きます。
+
+```bash
+uv run --extra langchain-typesafe python -m case03_langchain.main
+```
+
+これは新しい実験ではなく、基本的な連携の確認です。既定の経路は公式 SDK のままで、検証済みの結果は再実行して
+いません。3 件のメッセージを実サービスで 1 回実行したところ、両方のゲートウェイでルートは同じで、信頼度の差は
+数百分の一でした。
+
+| メッセージ | SDK | LangChain |
+| --- | --- | --- |
+| 二重請求 | `billing` 1.00、緊急度 0.91、`answer` | `billing` 1.00、緊急度 0.92、`answer` |
+| Stripe が 3 日間停止 | `technical` 0.97、緊急度 2.00、`escalate` | `technical` 0.94、緊急度 2.00、`escalate` |
+| 以前の指示を無視 | インジェクション 0.99、`refuse` | インジェクション 0.99、`refuse` |
+
+このパッケージは `LangChainBetaWarning` を出力します。同じパッケージの実験的ミドルウェア
+（`ModelRouterMiddleware`、`AutoModeMiddleware`）はここでは使っていません。
+
 ## テスト
 
 `uv run pytest` はオフラインで実行されます。フェイクの Jev が本物の `SystemOneResponse` オブジェクトを返すため、レスポンスのパース処理も検証されます。チャットモデルはフェイクで、モデルを呼び出してはならないルートには、触れると例外を送出するモデルを使っています。
@@ -139,3 +165,4 @@ sequenceDiagram
 | `tests/test_retry.py` | 接続エラーと NIM の 429/5xx はリトライし、Jev のエラーと本物のバグはリトライしない |
 | `tests/test_case01_graph.py` | 4 つのルート、ファンアウトは 1 回の呼び出し、answer 以外のルートではチャットモデルを呼ばない、空入力、専門プロンプト |
 | `tests/test_case02_deepagents.py` | ミドルウェアの同期版と非同期版、空入力と NaN、ツールの判定と Jev の失敗、インジェクションあり・なしでのエージェント全体 |
+| `tests/test_langchain_jev.py` | 質問とレスポンスの変換、呼び出しごとに 1 リクエスト、LangChain ゲートウェイでも triage が変わらず動く、extra がないときの案内エラー |

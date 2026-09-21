@@ -1,6 +1,6 @@
 # 케이스
 
-두 케이스 모두 `src/` 아래에 있으며 `pilot_jev/`를 공유합니다.
+케이스는 모두 `src/` 아래에 있으며 `pilot_jev/`를 공유합니다. Case 03은 새 실험이 아니라 LangChain 패키지의 기본 연동 확인입니다.
 
 ## Case 01: LangGraph 라우터로서의 Jev
 
@@ -126,6 +126,31 @@ sequenceDiagram
 
 `make_agent(llm, jev)`는 모듈 수준 그래프가 아니라 팩토리입니다. 채팅 모델을 만들려면 자격 증명이 필요하기 때문입니다. `make_graph()`는 `langgraph.json`용 인자 없는 `async` 래퍼이며, `langgraph.json`은 매개변수가 두 개를 넘는 팩토리를 허용하지 않습니다. 에이전트는 워커 스레드에서 한 번만 만듭니다.
 
+## Case 03: LangChain 통합
+
+`langchain-typesafe`는 LangChain이 만든 Jev 공식 통합입니다(알파, 선택 extra). `TypeSafeClassifier`는
+`{"state": ..., "questions": ...}`를 받아 `choices`, `scores`, `nouls`로 묶은 답을 돌려주는 `Runnable`입니다.
+`Choice`, `Score`, `Noul`, 응답 클래스가 SDK와 별도로 있어서 `pilot_jev/langchain_jev.py`는 형태만 변환합니다.
+SDK 질문을 넣고, 답은 SDK의 `SystemOneResponse`로 돌려줍니다. `LangChainJev`는 `Jev`와 같은 `Gateway`
+프로토콜을 만족하므로 triage 코드, 그래프, 미들웨어가 그대로 동작합니다.
+
+```bash
+uv run --extra langchain-typesafe python -m case03_langchain.main
+```
+
+이것은 새 실험이 아니라 기본 연동 확인입니다. 기본 경로는 공식 SDK 그대로이고, 이미 검증한 결과는 다시 돌리지
+않았습니다. 메시지 3개를 한 번 실제로 실행한 결과, 두 게이트웨이의 경로가 같았고 신뢰도는 100분의 몇 정도만
+달랐습니다.
+
+| 메시지 | SDK | LangChain |
+| --- | --- | --- |
+| 이중 결제 | `billing` 1.00, 긴급도 0.91, `answer` | `billing` 1.00, 긴급도 0.92, `answer` |
+| Stripe 3일째 장애 | `technical` 0.97, 긴급도 2.00, `escalate` | `technical` 0.94, 긴급도 2.00, `escalate` |
+| 이전 지시 무시 | 인젝션 0.99, `refuse` | 인젝션 0.99, `refuse` |
+
+이 패키지는 `LangChainBetaWarning`을 출력하며, 같은 패키지의 실험적 미들웨어(`ModelRouterMiddleware`,
+`AutoModeMiddleware`)는 여기서 쓰지 않았습니다.
+
 ## 테스트
 
 `uv run pytest`는 오프라인으로 실행됩니다. 가짜 Jev가 실제 `SystemOneResponse` 객체를 반환하므로 응답 파싱까지 검증됩니다. 채팅 모델은 가짜이고, 모델을 호출하면 안 되는 경로에는 건드리면 예외를 던지는 모델을 사용합니다.
@@ -139,3 +164,4 @@ sequenceDiagram
 | `tests/test_retry.py` | 연결 오류와 NIM 429/5xx는 재시도하고, Jev 오류와 실제 버그는 재시도하지 않음 |
 | `tests/test_case01_graph.py` | 네 가지 경로, 단일 fan-out 호출, answer가 아닌 경로에서는 채팅 모델 미사용, 빈 입력, 전문가 프롬프트 |
 | `tests/test_case02_deepagents.py` | 미들웨어 동기/비동기, 빈 입력과 NaN, 도구 판정과 Jev 실패, 인젝션 유무에 따른 전체 에이전트 |
+| `tests/test_langchain_jev.py` | 질문과 응답 변환, 호출당 요청 1건, LangChain 게이트웨이에서도 triage 그대로 동작, extra가 없을 때의 안내 오류 |

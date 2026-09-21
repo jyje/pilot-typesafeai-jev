@@ -1,6 +1,6 @@
 # Cases
 
-Both cases live under `src/` and share `pilot_jev/`.
+The cases live under `src/` and share `pilot_jev/`. Case 03 is a small integration check for the LangChain package, not a new experiment.
 
 ## Case 01: Jev as a LangGraph router
 
@@ -140,6 +140,32 @@ instead of aborting the whole run.
 model needs credentials. `make_graph()` is its zero-argument `async` wrapper for `langgraph.json`,
 which rejects factories with more than two parameters. It builds the agent once, in a worker thread.
 
+## Case 03: the LangChain integration
+
+`langchain-typesafe` is LangChain's own integration for Jev (alpha, optional extra). Its
+`TypeSafeClassifier` is a `Runnable` that takes `{"state": ..., "questions": ...}` and returns
+answers grouped as `choices`, `scores`, and `nouls`. It has its own `Choice`, `Score`, `Noul`, and
+response classes, so `pilot_jev/langchain_jev.py` only converts shapes: SDK questions go in, and the
+answer comes back as the SDK's `SystemOneResponse`. `LangChainJev` satisfies the same `Gateway`
+protocol as `Jev`, so the triage code, graphs, and middleware run on it unchanged.
+
+```bash
+uv run --extra langchain-typesafe python -m case03_langchain.main
+```
+
+This is a basic integration check, not a new experiment. The default path stays on the official
+SDK, and its verified results are not repeated. One live run of three messages gave the same routes
+on both gateways, with confidences that differ by a few hundredths.
+
+| Message | SDK | LangChain |
+| --- | --- | --- |
+| charged twice | `billing` 1.00, urgency 0.91, `answer` | `billing` 1.00, urgency 0.92, `answer` |
+| Stripe down for 3 days | `technical` 0.97, urgency 2.00, `escalate` | `technical` 0.94, urgency 2.00, `escalate` |
+| ignore previous instructions | injection 0.99, `refuse` | injection 0.99, `refuse` |
+
+The package logs a `LangChainBetaWarning`, and the experimental middleware in the same package
+(`ModelRouterMiddleware`, `AutoModeMiddleware`) is not used here.
+
 ## Tests
 
 `uv run pytest` runs offline. A fake Jev returns real `SystemOneResponse` objects, so response
@@ -155,3 +181,4 @@ that raises if touched.
 | `tests/test_retry.py` | connection errors and NIM 429/5xx retried, Jev errors and real bugs never retried |
 | `tests/test_case01_graph.py` | the four routes, single fan-out call, no chat model on non-answer routes, empty input, specialist prompt |
 | `tests/test_case02_deepagents.py` | middleware sync and async, empty input and NaN, tool verdicts and Jev failures, full agent with and without injection |
+| `tests/test_langchain_jev.py` | question and response conversion, one request per call, triage unchanged on the LangChain gateway, a clear error without the extra |
