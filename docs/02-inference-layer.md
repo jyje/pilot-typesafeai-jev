@@ -168,7 +168,7 @@ attempts on top. If you turn a vendor retry back on, the two layers multiply.
 
 - **What is retried:** connection errors, timeouts, and HTTP 429, 500, 502, 503, or 504 from NIM. For
   OpenAI-client errors (ChatGPT and LM Studio) it keeps the SDK's old policy: HTTP 408, 409, 429, and every
-  5xx, and an `x-should-retry` header decides when it is present. Never 400, 401, 403, or 404, and never a
+  5xx, and an `x-should-retry` header decides when it is present. A stream error event with no status whose message says the servers are overloaded is retried too. Never 400, 401, 403, or 404, and never a
   429 that says the plan or quota is used up (`usage_limit_reached`, `insufficient_quota`), because
   waiting does not fix those. Jev errors are never retried, since the TypeSafe SDK retries them itself.
 - **How long it waits:** exponential backoff with jitter (5 s, then 10 s, before jitter), capped at 60 s.
