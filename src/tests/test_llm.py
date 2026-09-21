@@ -1,3 +1,4 @@
+import json
 from typing import cast
 
 import pytest
@@ -160,11 +161,90 @@ def test_a_placeholder_nvidia_key_does_not_count_as_configured(monkeypatch):
     assert llm.auto_provider() == "nim"
 
 
-def test_an_empty_token_file_is_not_a_sign_in(tmp_path, monkeypatch):
+VALID_STORE = {
+    "access_token": "secret-access",
+    "refresh_token": "secret-refresh",
+    "expires_at": "2030-01-01T00:00:00+00:00",
+    "account_id": None,
+}
+
+
+@pytest.fixture
+def store(tmp_path, monkeypatch):
     token = tmp_path / "chatgpt-auth.json"
     monkeypatch.setattr(llm, "chatgpt_store_path", lambda: token)
+    return token
+
+
+def test_a_missing_or_empty_token_file_is_not_a_sign_in(store):
+    assert llm.chatgpt_store_status() == "missing"
+    store.write_text("")
+    assert llm.chatgpt_store_status() == "empty"
+    store.write_text("  \n")
+    assert llm.chatgpt_store_status() == "empty"
     assert real_chatgpt_signed_in() is False
-    token.write_text("")
+
+
+@pytest.mark.parametrize("text", ["{not json", '["a"]', '"a string"', "null", '{"access_token": '])
+def test_a_malformed_token_file_is_not_a_sign_in(store, text):
+    store.write_text(text)
+    assert llm.chatgpt_store_status() == "malformed"
     assert real_chatgpt_signed_in() is False
-    token.write_text("{}")
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {},
+        {"access_token": ""},
+        {"access_token": None},
+        {"refresh_token": 5},
+        {"expires_at": None},
+        {"expires_at": True},
+        {"expires_at": "not-a-date"},
+        {"expires_at": ""},
+        {"expires_at": 1e30},
+        {"expires_at": float("nan")},
+        {"expires_at": float("inf")},
+    ],
+)
+def test_a_structurally_incomplete_store_is_rejected(store, patch):
+    data = {**VALID_STORE, **patch} if patch else {}
+    store.write_text(json.dumps(data))  # NaN and inf serialize as bare tokens Python reads back
+    assert llm.chatgpt_store_status() == "incomplete"
+    assert real_chatgpt_signed_in() is False
+
+
+@pytest.mark.parametrize("expires_at", ["2030-01-01T00:00:00+00:00", 1893456000, 1893456000.5])
+def test_a_valid_store_is_accepted(store, expires_at):
+    store.write_text(json.dumps({**VALID_STORE, "expires_at": expires_at}))
+    assert llm.chatgpt_store_status() == "ok"
     assert real_chatgpt_signed_in() is True
+
+
+@pytest.mark.parametrize("expires_at", ["not-a-date", 1e30])
+def test_an_unparseable_expiry_falls_back_to_nim_in_auto_mode(store, monkeypatch, expires_at):
+    monkeypatch.setattr(llm, "chatgpt_signed_in", real_chatgpt_signed_in)
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+    store.write_text(json.dumps({**VALID_STORE, "expires_at": expires_at}))
+    assert llm.provider_name() == "nim"
+
+
+def test_a_corrupt_store_falls_back_to_nim_in_auto_mode(store, monkeypatch):
+    monkeypatch.setattr(llm, "chatgpt_signed_in", real_chatgpt_signed_in)
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+    store.write_text("{truncated")
+    assert llm.provider_name() == "nim"
+    store.write_text(json.dumps(VALID_STORE))
+    assert llm.provider_name() == "openai"
+
+
+def test_the_error_and_hint_explain_the_problem_without_token_values(store):
+    store.write_text(json.dumps({**VALID_STORE, "refresh_token": ""}))
+    with pytest.raises(RuntimeError, match="chatgpt_login") as caught:
+        llm.make_chat_model(provider="openai")
+    text = f"{caught.value} {llm.chatgpt_recovery_hint()}"
+    assert "refresh token" in text
+    assert "secret-access" not in text
+    store.write_text(json.dumps(VALID_STORE))
+    assert llm.chatgpt_recovery_hint().startswith("Run:")

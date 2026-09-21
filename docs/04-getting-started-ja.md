@@ -84,7 +84,7 @@ uv run langgraph dev --no-browser
 
 | 症状 | 原因と対処 |
 | --- | --- |
-| `Not signed in to ChatGPT` | `uv run python -m pilot_jev.chatgpt_login` を 1 回実行します |
+| `Not signed in to ChatGPT: ...` | `uv run python -m pilot_jev.chatgpt_login` を 1 回実行します。メッセージがトークンファイルの欠落、空、破損、不完全のどれかを示し、自動選択はそのとき NIM か LM Studio に切り替わります |
 | `doctor.py`: `TYPESAFE_API_KEY` not set | `src/` ではなく、リポジトリルートの `.env` に記述します |
 | NIM から `410 Gone` | モデルが提供終了です。`LLM_MODEL` で別のモデルを選びます |
 | NIM から `403 Forbidden` | そのキーでは推論を実行できません。build.nvidia.com で新しいキーを作成します |
