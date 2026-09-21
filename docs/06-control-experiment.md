@@ -81,8 +81,11 @@ status, and a few known tags, so no response body or model output is published;
 
 ## Results
 
-Main stage, first 5 runs of every configuration, 60 messages. Accuracy is the share of runs on the
-expected route. **Difference** is the configuration's accuracy minus Jev's, taken message by message,
+Main stage, first 5 runs of every configuration, 60 messages. Accuracy is the share of scored runs on the
+expected route. **A reply that failed the schema counts as a miss** (33 of 300 for nemotron-3-nano-omni,
+3 for nemotron-3-ultra, 2 for glm-5.3-flash). A call the infrastructure failed (a 429, a 503, a timeout) says
+nothing about the model, so it is left out and reported: after the reruns, 3 runs of nemotron-3-ultra and
+1 of nemotron-3-nano-omni are missing. Consistency and latency use the usable answers. **Difference** is the configuration's accuracy minus Jev's, taken message by message,
 with a paired 95% bootstrap interval: both engines answered the same messages, so a small steady gap
 shows up even when the two separate intervals overlap. The full tables are in the
 [notebook](../src/notebooks/03-case04-structured-control.ipynb) and in `src/experiments/data/tables/`.
@@ -94,9 +97,9 @@ shows up even when the two separate intervals overlap. The full tables are in th
 | gpt-5.6-sol, medium | 0.940 | 0.873 to 0.990 | -0.027 (-0.087 to 0.033) | 0.993 | 2.9 s |
 | gpt-6-astra, high | 0.940 | 0.873 to 0.990 | -0.027 (-0.070 to 0.000) | 0.993 | 3.5 s |
 | gpt-6-astra, medium (lowest of ChatGPT) | 0.900 | 0.823 to 0.967 | **-0.067 (-0.127 to -0.017)** | 0.987 | 3.1 s |
-| glm-5.3-flash | 0.907 | 0.837 to 0.970 | **-0.060 (-0.117 to -0.013)** | 0.983 | 19.9 s |
-| nemotron-3-ultra, thinking on | 0.899 | 0.840 to 0.952 | **-0.067 (-0.114 to -0.030)** | 0.939 | 11.9 s |
-| nemotron-3-nano-omni, thinking on | 0.858 | 0.775 to 0.930 | **-0.108 (-0.180 to -0.046)** | 0.965 | 9.9 s |
+| glm-5.3-flash | 0.903 | 0.830 to 0.967 | **-0.063 (-0.120 to -0.017)** | 0.983 | 19.9 s |
+| nemotron-3-ultra, thinking on | 0.891 | 0.832 to 0.945 | **-0.076 (-0.124 to -0.036)** | 0.939 | 11.9 s |
+| nemotron-3-nano-omni, thinking on | 0.766 | 0.683 to 0.837 | **-0.201 (-0.271 to -0.137)** | 0.965 | 9.9 s |
 
 Bold means the interval of the difference excludes zero.
 
@@ -104,7 +107,7 @@ Bold means the interval of the difference excludes zero.
 
 - **Accuracy: nothing beat Jev, and five configurations were lower.** Ten of the fifteen (every
   gpt-5.6 setting and gpt-6-astra at high effort) cannot be told apart from Jev, and the best of them ties
-  it at 0.967. Five are lower by 0.06 to 0.11: glm-5.3-flash, gpt-6-astra at low and medium effort, and
+  it at 0.967. Five are lower by 0.06 to 0.20: glm-5.3-flash, gpt-6-astra at low and medium effort, and
   nemotron-3-ultra and nemotron-3-nano-omni with thinking on. "Cannot be told apart" means no detected
   difference with 60 messages, not proof of equality.
 - **Reasoning effort mattered for one model.** For gpt-6-astra, high effort cannot be told apart from Jev
@@ -151,3 +154,7 @@ Bold means the interval of the difference excludes zero.
 - To keep the run short, NIM was screened with one run per message instead of three, and `glm-5.3` and
   `kimi-k3` on the five core messages only. Both are documented deviations (see Screen coverage), and the
   rule did not change, except that a configuration must now be screened on all 31 messages to pass.
+- The experiment timeout (600 s) was applied around the whole call but not to the model client, which
+  kept the 180 s default of `LLM_TIMEOUT`, so a slow call was cut at 180 s and retried inside the limit.
+  The timeout is passed to the client now. The screen data was collected the old way, which affects only
+  the slowest models (`nemotron-3.5-lightning`, `glm-5.3`, `kimi-k3`), and they fail the 60 s rule either way.
