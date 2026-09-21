@@ -10,6 +10,7 @@ dependencies = [
     "langchain-nvidia-ai-endpoints>=1.4.3",
     "langchain-openai>=1.6.2",
     "langgraph>=1.2.11",
+    "openai>=3.0.0",
     "python-dotenv>=1.2.3",
     "requests>=2.34.2",
     "typesafe-sdk>=0.7.0",
@@ -31,6 +32,7 @@ notebook = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.0.0",
     "nbformat>=5.11.1",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

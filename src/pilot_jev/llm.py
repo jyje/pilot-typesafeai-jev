@@ -158,7 +158,8 @@ def make_chat_model(*, provider: str | None = None, model: str | None = None) ->
         # Experimental and private in langchain-openai: it may change without notice.
         from langchain_openai.chat_models.codex import _ChatOpenAICodex
 
-        return _ChatOpenAICodex(model=model, timeout=timeout_seconds(), max_retries=2)
+        # max_retries=0: pilot_jev.retry.with_retries is the only retry owner (see that module).
+        return _ChatOpenAICodex(model=model, timeout=timeout_seconds(), max_retries=0)
 
     if provider == "nim":
         kwargs: dict = {"model": model, "timeout": timeout_seconds()}
@@ -176,5 +177,5 @@ def make_chat_model(*, provider: str | None = None, model: str | None = None) ->
         # LM Studio does not validate the key, but the OpenAI client insists on one.
         api_key=os.getenv("LMSTUDIO_API_KEY") or "lm-studio",
         timeout=timeout_seconds(),
-        max_retries=2,
+        max_retries=0,  # pilot_jev.retry.with_retries is the only retry owner
     )

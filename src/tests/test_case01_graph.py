@@ -1,8 +1,11 @@
+import httpx2
+import openai
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 
 from case01_routing.graph import build_graph
+from pilot_jev.retry import DEFAULT_ATTEMPTS
 from tests.conftest import FakeJev, intent, noul, urgency
 
 
@@ -100,3 +103,42 @@ async def test_a_transient_chat_model_error_is_retried_without_calling_jev_again
     assert result["messages"][-1].content == "recovered"
     assert FlakyLLM.calls == 2
     assert len(calm_billing.calls) == 1  # the triage Jev request was not replayed
+
+
+class CountingLLM:
+    """A chat model that fails with the queued errors, then answers. Counts underlying calls."""
+
+    def __init__(self, *errors: Exception) -> None:
+        self.errors = list(errors)
+        self.calls = 0
+
+    async def ainvoke(self, *_args, **_kwargs):
+        self.calls += 1
+        if self.errors:
+            raise self.errors.pop(0)
+        return AIMessage("recovered")
+
+
+async def test_a_transient_error_costs_exactly_the_default_number_of_model_calls(
+    calm_billing, monkeypatch
+):
+    async def no_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr("pilot_jev.retry.asyncio.sleep", no_sleep)
+    llm = CountingLLM(*[TimeoutError("slow")] * 10)
+    with pytest.raises(TimeoutError):
+        await run(calm_billing, llm)
+    assert llm.calls == DEFAULT_ATTEMPTS
+    assert len(calm_billing.calls) == 1  # the triage Jev request was not replayed
+
+
+async def test_a_permanent_error_costs_exactly_one_model_call(calm_billing):
+    request = httpx2.Request("POST", "https://example.invalid")
+    error = openai.AuthenticationError(
+        "bad key", response=httpx2.Response(401, request=request), body=None
+    )
+    llm = CountingLLM(error)
+    with pytest.raises(openai.AuthenticationError):
+        await run(calm_billing, llm)
+    assert llm.calls == 1

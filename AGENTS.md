@@ -79,6 +79,8 @@ Read the key from the keychain without printing it:
 - Every Jev call goes through the `pilot_jev.jev.Gateway` protocol (implemented by `Jev` and by the optional
   `LangChainJev`) so tests can swap in a fake. The SDK stays the default path. Code and tests must pass `ruff check --fix`, `ruff format`, `ty check`, and `pytest`
   (`python-lint` skill). Suppress a finding only with the exact rule and a reason.
+- `pilot_jev.retry.with_retries` is the only retry owner for chat model calls: keep vendor SDK retries at
+  zero (`max_retries=0`), retry the call and never a whole graph or agent run, and never retry Jev errors.
 - Model names are account specific. Find them with `python -m pilot_jev.chatgpt_models`, and keep
   account-specific names out of public docs.
 - The `openai` provider uses ChatGPT OAuth, never `OPENAI_API_KEY`. It is experimental and unofficial,
