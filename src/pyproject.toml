@@ -16,6 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+langchain-typesafe = [
+    "langchain-typesafe>=0.0.1a3",
+]
 studio = [
     "langgraph-cli[inmem]>=0.4.0",
 ]
