@@ -76,6 +76,9 @@ def is_transient(exc: Exception) -> bool:
         return _openai_status_is_transient(exc)
     if isinstance(exc, TRANSIENT):
         return True
+    if isinstance(exc, openai.APIError):
+        # A stream error event with no HTTP status, seen from the ChatGPT backend under load.
+        return "overloaded" in str(exc).lower()
     return type(exc) is Exception and bool(_NIM_HTTP_TRANSIENT.match(str(exc)))
 
 

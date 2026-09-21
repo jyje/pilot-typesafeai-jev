@@ -299,3 +299,18 @@ async def test_a_used_up_plan_reported_in_the_type_field_is_never_retried_and_ne
         await with_retries(call)
     assert call.calls == 1
     assert waits == []
+
+
+async def test_an_overloaded_stream_error_without_a_status_is_retried(waits):
+    request = httpx2.Request("POST", "https://example.invalid/v1/responses")
+    overloaded = openai.APIError(
+        "Our servers are currently overloaded. Please try again later.", request=request, body=None
+    )
+    call = Counter(overloaded)
+    assert await with_retries(call) == "ok"
+    assert call.calls == 2
+
+
+def test_other_status_less_openai_errors_are_not_retried():
+    request = httpx2.Request("POST", "https://example.invalid/v1/responses")
+    assert not is_transient(openai.APIError("invalid schema", request=request, body=None))
