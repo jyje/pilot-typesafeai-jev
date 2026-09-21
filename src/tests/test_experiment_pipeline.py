@@ -208,3 +208,9 @@ def test_retry_errors_redoes_infrastructure_failures_but_not_bad_replies(tmp_pat
         store.append(Record("s", "l", "jev", "jev", "-", "c01", 1, 0.0, 0.5, route="answer"))
     )
     assert "c01" in {k[2] for k in store.done(retry_errors=True)}
+
+
+def test_groups_restricts_the_messages_of_a_stage():
+    chat = matrix.pick(["gpt-5.6-luna:low"])
+    assert len(exp.build_tasks("screen", chat, repeats=1, only_groups={"core"})) == 5
+    assert len(exp.build_tasks("screen", chat, repeats=1, only_groups={"attack", "benign"})) == 10

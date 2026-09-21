@@ -55,9 +55,14 @@ class Task:
 
 
 def build_tasks(
-    stage: str, configs: Sequence[EngineConfig], *, repeats: int | None = None
+    stage: str,
+    configs: Sequence[EngineConfig],
+    *,
+    repeats: int | None = None,
+    only_groups: set[dataset.Group] | None = None,
 ) -> list[Task]:
     groups, extended, chat_repeats, jev_repeats = STAGES[stage]
+    groups = only_groups or groups
     items = dataset.select(groups, extended=extended)
     tasks = []
     for cfg in configs:
@@ -151,6 +156,9 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     p.add_argument("--repeats", type=int, help="override the repeats of the stage")
     p.add_argument("--mode", choices=list(MODES))
     p.add_argument("--window", type=int)
+    p.add_argument(
+        "--groups", nargs="*", choices=["core", "scenario", "attack", "benign"], help="only these"
+    )
     p.add_argument("--retry-errors", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--out", type=Path, help="JSONL path (default: data/<stage>.jsonl)")
@@ -168,7 +176,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.from_screen:
         keep = set(passing_labels(Store(DATA / "screen.jsonl").read())) | {matrix.JEV.label}
         configs = [c for c in configs if c.label in keep]
-    tasks = build_tasks(args.stage, configs, repeats=args.repeats)
+    groups = set(args.groups) if args.groups else None
+    tasks = build_tasks(args.stage, configs, repeats=args.repeats, only_groups=groups)
     done = store.done(retry_errors=args.retry_errors)
     todo = order([t for t in tasks if t.key not in done], cfg.order, cfg.seed)
     print(
