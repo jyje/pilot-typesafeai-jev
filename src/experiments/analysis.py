@@ -18,10 +18,9 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from experiments import dataset
+from experiments.selection import MAX_MEDIAN_LATENCY_S, MIN_VALID_RATE
 
 ROUTES = ["answer", "escalate", "review", "refuse"]
-MIN_VALID_RATE = 0.90
-MAX_MEDIAN_LATENCY_S = 60.0
 
 
 def load(paths: Iterable[Path]) -> pd.DataFrame:
@@ -57,6 +56,7 @@ def availability(df: pd.DataFrame) -> pd.DataFrame:
         {
             "engine": g["engine"].first(),
             "calls": g.size(),
+            "messages": g["item_id"].nunique(),
             "valid_rate": g["ok"].mean(),
             "median_s": valid(df).groupby("label")["latency_s"].median(),
             "p95_s": valid(df).groupby("label")["latency_s"].quantile(0.95),
@@ -110,26 +110,42 @@ def accuracy(df: pd.DataFrame, groups: Sequence[str] | None = None) -> pd.DataFr
     return pd.DataFrame(rows, columns=["label", "engine", "short", "runs", "accuracy", "lo", "hi"])
 
 
-def versus_jev(
-    table: pd.DataFrame, value: str = "accuracy", jev_label: str = "jev:jev:-"
+def paired_versus_jev(
+    df: pd.DataFrame, jev_label: str = "jev:jev:-", *, draws: int = 2000, seed: int = 7
 ) -> pd.DataFrame:
-    """Label each config as clearly better, clearly worse, or not distinguishable from Jev.
+    """Each config's accuracy minus Jev's, message by message, with a paired bootstrap interval.
 
-    "Clearly" means the two intervals (columns `lo` and `hi`) do not overlap. Overlapping intervals
-    are not evidence of equality, only of no detected difference at this sample size.
+    Both engines answered the same messages, so the difference is taken per message and messages are
+    resampled together. That detects a small, steady gap that two separate intervals would hide. A
+    config is "better" or "worse" when the 95% interval of the difference excludes zero, otherwise
+    "not distinguishable", which is no detected difference at this sample size, not equality.
     """
-    jev = table[table["label"] == jev_label]
-    out = table[table["label"] != jev_label].copy()
-    if jev.empty:
-        out["vs_jev"] = "no Jev rows"
-        return out
-    j = jev.iloc[0]
-    out["vs_jev"] = [
-        "better" if lo > j["hi"] else "worse" if hi < j["lo"] else "not distinguishable"
-        for lo, hi in zip(out["lo"], out["hi"], strict=True)
-    ]
-    out["difference"] = out[value] - j[value]
-    return out
+    per = analysis_per_message(df)
+    if jev_label not in per.columns:
+        return pd.DataFrame(
+            columns=["label", "difference", "diff_lo", "diff_hi", "messages", "vs_jev"]
+        )
+    rng = np.random.default_rng(seed)
+    rows = []
+    for label in per.columns:
+        if label == jev_label:
+            continue
+        gap = (per[label] - per[jev_label]).dropna().to_numpy(dtype=float)
+        if len(gap) == 0:
+            continue
+        means = rng.choice(gap, size=(draws, len(gap)), replace=True).mean(axis=1)
+        lo, hi = (float(x) for x in np.quantile(means, [0.025, 0.975]))
+        verdict = "better" if lo > 0 else "worse" if hi < 0 else "not distinguishable"
+        rows.append((label, float(gap.mean()), lo, hi, len(gap), verdict))
+    return pd.DataFrame(
+        rows, columns=["label", "difference", "diff_lo", "diff_hi", "messages", "vs_jev"]
+    )
+
+
+def analysis_per_message(df: pd.DataFrame) -> pd.DataFrame:
+    """Share of usable runs on the expected route: one row per message, one column per config."""
+    v = valid(df)
+    return v.groupby(["item_id", "label"])["hit"].mean().unstack("label")
 
 
 def consistency(df: pd.DataFrame) -> pd.DataFrame:

@@ -58,7 +58,7 @@ def build(data_dir: Path, tables_dir: Path, images_dir: Path) -> dict[str, Path]
     main = analysis.trim_repeats(df[df["stage"] == "main"], PARITY_REPEATS)
     if not main.empty:
         acc = analysis.accuracy(main)
-        table("accuracy", analysis.versus_jev(acc))
+        table("accuracy", acc.merge(analysis.paired_versus_jev(main), on="label", how="left"))
         table(
             "consistency_agreement",
             analysis.consistency(main).merge(

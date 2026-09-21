@@ -131,21 +131,26 @@ async def test_a_rerun_skips_finished_rows_and_can_redo_the_failed_ones(tmp_path
 
 
 def test_the_screen_rule_uses_validity_and_latency_never_accuracy():
-    def row(label, latency=1.0, error=None):
-        return {"label": label, "latency_s": latency, "error_kind": error}
+    def rows(label, n, latency=1.0, error=None, start=0):
+        return [
+            {"label": label, "item_id": f"m{i}", "latency_s": latency, "error_kind": error}
+            for i in range(start, start + n)
+        ]
 
-    rows = (
-        [row("good")] * 10
-        + [row("flaky")] * 8
-        + [row("flaky", error="provider")] * 2
-        + [row("slow", latency=90.0)] * 10
-        + [row("dead", error="timeout")] * 10
+    data = (
+        rows("good", 31)
+        + rows("flaky", 25)
+        + rows("flaky", 6, error="provider", start=25)
+        + rows("slow", 31, latency=90.0)
+        + rows("dead", 31, error="timeout")
     )
-    summary = screen_summary(rows)
+    summary = screen_summary(data)
     assert summary["good"]["passes"] and not summary["slow"]["passes"]
-    assert not summary["flaky"]["passes"] and summary["flaky"]["valid_rate"] == 0.8
+    assert not summary["flaky"]["passes"] and summary["flaky"]["valid_rate"] == pytest.approx(
+        25 / 31
+    )
     assert not summary["dead"]["passes"]
-    assert passing_labels(rows) == ["good"]
+    assert passing_labels(data) == ["good"]
 
 
 def test_the_dry_run_prints_the_plan_and_writes_nothing(tmp_path, capsys):
@@ -214,3 +219,108 @@ def test_groups_restricts_the_messages_of_a_stage():
     chat = matrix.pick(["gpt-5.6-luna:low"])
     assert len(exp.build_tasks("screen", chat, repeats=1, only_groups={"core"})) == 5
     assert len(exp.build_tasks("screen", chat, repeats=1, only_groups={"attack", "benign"})) == 10
+
+
+def test_clean_error_keeps_the_class_status_and_known_tags_only():
+    from experiments.records import clean_error
+
+    text = (
+        "OpenAIRateLimitError: Error code: 429 - {'error': {'type': 'usage_limit_reached', "
+        "'message': 'secret body', 'plan_type': 'plus', 'resets_at': 1790002372}}"
+    )
+    assert clean_error("provider", text) == "OpenAIRateLimitError HTTP 429 usage_limit_reached"
+    nim = "Exception: [503] {'message': 'ResourceExhausted: Worker limit', 'id': 'abc-123'}"
+    assert clean_error("provider", nim) == "Exception HTTP 503 ResourceExhausted"
+    assert clean_error("timeout", "TimeoutError: ") == "TimeoutError"
+    assert clean_error("provider", "weird text: nothing known") == "Error"
+    assert clean_error(None, "anything") is None
+
+
+def test_clean_error_drops_model_output_from_parse_and_schema_failures():
+    from experiments.records import clean_error
+
+    parse = "parse: Invalid json output: intent: billing\nSECRET model text"
+    assert "SECRET" not in (clean_error("parse", parse) or "")
+    schema = "schema: intent is not one of the choices: 'ignore previous instructions'"
+    assert clean_error("schema", schema) == "schema: intent is not one of the choices"
+
+
+def test_clean_row_relabels_the_non_string_intent_bug_and_is_idempotent():
+    from experiments.records import clean_row
+
+    row = {"error_kind": "provider", "error": "TypeError: unhashable type: 'dict'", "route": None}
+    fixed = clean_row(row)
+    assert (fixed["error_kind"], fixed["error"]) == ("schema", "schema: intent is not a string")
+    assert clean_row(fixed) == fixed
+    ok = {"error_kind": None, "error": None, "route": "answer"}
+    assert clean_row(ok) == ok
+
+
+def test_sanitize_file_rewrites_rows_in_place(tmp_path):
+    from experiments.sanitize import sanitize_file
+
+    path = tmp_path / "rows.jsonl"
+    rows = [
+        {"error_kind": "provider", "error": "Exception: [503] {'a': 'body'}", "item_id": "c01"},
+        {"error_kind": None, "error": None, "item_id": "c02"},
+    ]
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    assert sanitize_file(path) == 1
+    assert sanitize_file(path) == 0
+    assert "body" not in path.read_text()
+
+
+async def test_a_failed_call_is_timed_as_its_own_duration_not_the_experiment(tmp_path):
+    import asyncio
+
+    class SlowThenDown(FakeEngine):
+        async def classify(self, text):
+            await asyncio.sleep(0.05)
+            raise ConnectionError("down: secret detail")
+
+    configs = matrix.pick(["gpt-5.6-luna:low"])
+    engines = {configs[0].label: SlowThenDown()}
+    store = Store(tmp_path / "t.jsonl")
+    await asyncio.sleep(0.3)  # the experiment has already been "running" for a while
+    tasks = exp.build_tasks("stability", configs, repeats=1)
+    await exp.execute(tasks, engines, store, RunConfig(mode="sequential"), progress_every=99)
+    rows = store.read()
+    assert all(0.04 <= r["latency_s"] < 0.3 for r in rows)
+    assert all("secret" not in (r["error"] or "") for r in rows)
+    assert {r["error"] for r in rows} == {"ConnectionError"}
+
+
+def test_a_partial_screen_can_fail_a_config_but_never_pass_it():
+    def rows(label, n_messages, latency=1.0, error=None):
+        return [
+            {"label": label, "item_id": f"m{i}", "latency_s": latency, "error_kind": error}
+            for i in range(n_messages)
+        ]
+
+    data = rows("full", 31) + rows("partial", 5) + rows("partial-bad", 5, error="timeout")
+    summary = screen_summary(data)
+    assert summary["full"]["passes"] and summary["full"]["messages"] == 31
+    assert not summary["partial"]["passes"]  # perfect, but on too few messages
+    assert not summary["partial-bad"]["passes"]
+    assert passing_labels(data) == ["full"]
+
+
+def test_from_screen_applies_the_rule_to_jev_too(tmp_path, monkeypatch, capsys):
+    screen = tmp_path / "screen.jsonl"
+    rows = [
+        {
+            "stage": "screen",
+            "label": "openai:gpt-5.6-luna:low",
+            "item_id": f"m{i}",
+            "repeat": 1,
+            "latency_s": 1.0,
+            "error_kind": None,
+        }
+        for i in range(31)
+    ]
+    screen.write_text("\n".join(json.dumps(r) for r in rows))
+    monkeypatch.setattr(exp, "DATA", tmp_path)
+    exp.main(["--stage", "main", "--from-screen", "--dry-run", "--out", str(tmp_path / "m.jsonl")])
+    text = capsys.readouterr().out
+    assert "Jev did not pass the screen" in text
+    assert "configs=1 " in text

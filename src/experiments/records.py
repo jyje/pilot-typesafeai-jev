@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -40,6 +41,55 @@ class Record:
     @property
     def ok(self) -> bool:
         return self.error_kind is None
+
+
+# Diagnostics worth keeping from a failed call. Everything else in an error message (a response
+# body, a request id, a piece of the model's output) stays out of the versioned data.
+KNOWN_TAGS = (
+    "usage_limit_reached",
+    "insufficient_quota",
+    "overloaded",
+    "guided_json",
+    "ResourceExhausted",
+)
+_STATUS = re.compile(r"\[(\d{3})\]|Error code: (\d{3})|HTTP (\d{3})")
+_PARSE = "parse: output was not valid structured data"
+
+
+def clean_error(kind: str | None, text: str | None) -> str | None:
+    """Reduce an error message to what is safe and useful to publish.
+
+    Provider errors and timeouts keep the exception class, the HTTP status, and any known tag. A
+    parse failure loses the model's output. A schema failure keeps only which field was wrong.
+    """
+    if not kind or not text:
+        return None
+    if kind == "parse":
+        return _PARSE
+    if kind == "schema":
+        return "schema: " + text.removeprefix("schema: ").split(":", 1)[0][:80]
+    if ":" not in text:
+        return text  # already clean: a class name, a status, and tags
+    name = text.split(":", 1)[0].strip()
+    parts = [name if re.fullmatch(r"\w+", name) else "Error"]
+    if match := _STATUS.search(text):
+        parts.append("HTTP " + next(g for g in match.groups() if g))
+    parts += [tag for tag in KNOWN_TAGS if tag.lower() in text.lower()]
+    return " ".join(parts)
+
+
+def clean_row(row: dict) -> dict:
+    """The same reduction for a row already written, and a fix for one mislabelled error.
+
+    An intent that was not a string raised `TypeError` and was recorded as a provider error. It is a
+    reply that failed the schema, so it is relabelled.
+    """
+    out = dict(row)
+    if (out.get("error") or "").startswith("TypeError: unhashable type"):
+        out["error_kind"], out["error"] = "schema", "schema: intent is not a string"
+        return out
+    out["error"] = clean_error(out.get("error_kind"), out.get("error"))
+    return out
 
 
 class Store:

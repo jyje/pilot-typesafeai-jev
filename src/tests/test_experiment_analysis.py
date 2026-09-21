@@ -191,27 +191,54 @@ def test_trim_repeats_keeps_the_first_n_runs_of_every_config():
     assert len(analysis.trim_repeats(df, 2)) == len(df) // 2
 
 
-def test_versus_jev_only_calls_a_difference_when_the_intervals_do_not_overlap():
-    table = pd.DataFrame(
-        {
-            "label": [JEV, "a", "b", "c", "d"],
-            "accuracy": [0.8, 0.96, 0.5, 0.75, 0.9],
-            "lo": [0.7, 0.92, 0.4, 0.6, 0.6],
-            "hi": [0.9, 0.99, 0.65, 0.9, 1.0],
-        }
-    )
-    out = analysis.versus_jev(table).set_index("label")
-    assert out.loc["a", "vs_jev"] == "better"  # its lower bound 0.92 is above Jev's upper 0.9
-    assert out.loc["b", "vs_jev"] == "worse"  # its upper bound 0.65 is below Jev's lower 0.7
-    assert out.loc["c", "vs_jev"] == "not distinguishable"
-    assert out.loc["d", "vs_jev"] == "not distinguishable"
-    assert out.loc["b", "difference"] == pytest.approx(-0.3)
-    assert JEV not in out.index
+def per_message_frame(jev_acc: list[float], other_acc: list[float], runs: int = 5) -> pd.DataFrame:
+    """Rows where message i is answered correctly in round(acc * runs) of `runs` runs."""
+    rows = []
+    for label, engine, accs in [(JEV, "jev", jev_acc), (GPT, "openai", other_acc)]:
+        for i, acc in enumerate(accs):
+            hits = round(acc * runs)
+            routes = ["answer"] * hits + ["review"] * (runs - hits)
+            rows += rows_for(label, engine, {f"c{i + 1:02d}": routes})
+    frame_ = frame(rows)
+    frame_["hit"] = frame_["route"] == "answer"  # the message set is invented: answer is right
+    return frame_
 
 
-def test_versus_jev_without_jev_rows_says_so():
-    table = pd.DataFrame({"label": ["a"], "accuracy": [0.5], "lo": [0.4], "hi": [0.6]})
-    assert analysis.versus_jev(table).iloc[0]["vs_jev"] == "no Jev rows"
+def test_the_paired_bootstrap_finds_a_steady_gap_that_overlapping_intervals_hide():
+    jev = [0.4, 0.6, 0.8, 1.0] * 5
+    other = [a - 0.1 for a in jev]  # a constant 0.1 lower on every message
+    df = per_message_frame(jev, other, runs=10)
+    marginal = analysis.accuracy(df).set_index("label")
+    assert marginal.loc[JEV, "lo"] < marginal.loc[GPT, "hi"]  # the two intervals overlap
+    out = analysis.paired_versus_jev(df).iloc[0]
+    assert out["vs_jev"] == "worse"
+    assert out["difference"] == pytest.approx(-0.1)
+    assert out["diff_hi"] < 0 and out["messages"] == 20
+
+
+def test_the_paired_bootstrap_calls_no_gap_not_distinguishable():
+    jev = [0.4, 0.6, 0.8, 1.0] * 5
+    other = [0.6, 0.4, 1.0, 0.8] * 5  # differences of both signs
+    out = analysis.paired_versus_jev(per_message_frame(jev, other)).iloc[0]
+    assert out["vs_jev"] == "not distinguishable"
+    assert out["diff_lo"] <= 0 <= out["diff_hi"]
+
+
+def test_the_paired_bootstrap_can_call_a_config_better():
+    jev = [0.4, 0.6] * 10
+    other = [a + 0.2 for a in jev]
+    assert analysis.paired_versus_jev(per_message_frame(jev, other)).iloc[0]["vs_jev"] == "better"
+
+
+def test_paired_versus_jev_only_compares_messages_both_engines_answered():
+    df = per_message_frame([1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
+    df = df[~((df["label"] == GPT) & (df["item_id"] == "c03"))]
+    out = analysis.paired_versus_jev(df).iloc[0]
+    assert out["messages"] == 2
+
+
+def test_paired_versus_jev_without_jev_rows_is_empty():
+    assert analysis.paired_versus_jev(frame(GPT_ROWS)).empty
 
 
 def test_the_report_script_writes_tables_figures_and_parquet(tmp_path):
@@ -225,7 +252,8 @@ def test_the_report_script_writes_tables_figures_and_parquet(tmp_path):
     assert {"screen", "accuracy", "injection", "cost", "results", "figure-accuracy"} <= set(written)
     assert all(path.is_file() for path in written.values())
     assert pd.read_parquet(written["results"]).shape[0] == len(rows)
-    assert pd.read_csv(written["accuracy"])["vs_jev"].notna().all()
+    accuracy = pd.read_csv(written["accuracy"]).set_index("label")
+    assert accuracy.loc[GPT, "vs_jev"] in {"better", "worse", "not distinguishable"}
 
 
 def test_the_report_script_refuses_an_empty_data_directory(tmp_path):

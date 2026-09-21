@@ -26,7 +26,7 @@ from experiments import config as run_config
 from experiments import dataset, matrix
 from experiments.engines import Engine, make_engine
 from experiments.matrix import EngineConfig
-from experiments.records import Key, Record, Store
+from experiments.records import Key, Record, Store, clean_error
 from experiments.runner import MODES, run_tasks
 from experiments.selection import passing_labels
 from pilot_jev.env import load_env
@@ -94,10 +94,8 @@ async def execute(
     total = len(tasks)
     started = time.time()
 
-    async def worker(task: Task) -> Record:
-        began = time.time()
-        outcome = await engines[task.config.label].classify(task.item.text)
-        record = Record(
+    def base(task: Task, began: float) -> Record:
+        return Record(
             stage=task.stage,
             label=task.config.label,
             engine=task.config.engine,
@@ -107,15 +105,24 @@ async def execute(
             repeat=task.repeat,
             started_at=began,
             latency_s=round(time.time() - began, 3),
-            input_tokens=outcome.input_tokens,
-            output_tokens=outcome.output_tokens,
-            reasoning_tokens=outcome.reasoning_tokens,
         )
+
+    async def worker(task: Task) -> Record:
+        began = time.time()
+        try:
+            outcome = await engines[task.config.label].classify(task.item.text)
+        except Exception as exc:  # noqa: BLE001 - a failed call is a row, timed as its own call
+            record = base(task, began)
+            record.error_kind = classify_error(exc)
+            record.error = clean_error(record.error_kind, f"{type(exc).__name__}: {exc}")
+            return record
+        record = base(task, began)
+        record.input_tokens = outcome.input_tokens
+        record.output_tokens = outcome.output_tokens
+        record.reasoning_tokens = outcome.reasoning_tokens
         if outcome.triage is None:
-            record.error_kind, record.error = (
-                (outcome.error or "schema: ").split(":", 1)[0],
-                outcome.error,
-            )
+            record.error_kind = (outcome.error or "schema:").split(":", 1)[0]
+            record.error = clean_error(record.error_kind, outcome.error)
             return record
         t = outcome.triage
         record.intent, record.intent_confidence = t.intent, t.intent_confidence
@@ -123,20 +130,11 @@ async def execute(
         return record
 
     async def on_result(task: Task, outcome: Record | BaseException) -> None:
-        if isinstance(outcome, BaseException):
-            outcome = Record(
-                stage=task.stage,
-                label=task.config.label,
-                engine=task.config.engine,
-                model=task.config.model,
-                setting=task.config.setting,
-                item_id=task.item.id,
-                repeat=task.repeat,
-                started_at=started,
-                latency_s=round(time.time() - started, 3),
-                error_kind=classify_error(outcome),
-                error=f"{type(outcome).__name__}: {outcome}"[:200],
-            )
+        if isinstance(
+            outcome, BaseException
+        ):  # the worker itself broke: still one row, still timed
+            outcome = base(task, started)
+            outcome.error_kind, outcome.error = "provider", "WorkerError"
         await store.append(outcome)
         counts["ok" if outcome.ok else outcome.error_kind or "error"] += 1
         finished = sum(counts.values())
@@ -174,7 +172,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.exclude:
         configs = [c for c in configs if not any(x in c.label for x in args.exclude)]
     if args.from_screen:
-        keep = set(passing_labels(Store(DATA / "screen.jsonl").read())) | {matrix.JEV.label}
+        keep = set(passing_labels(Store(DATA / "screen.jsonl").read()))
+        if matrix.JEV.label not in keep:
+            print("warning: Jev did not pass the screen, so it is not in this stage")
         configs = [c for c in configs if c.label in keep]
     groups = set(args.groups) if args.groups else None
     tasks = build_tasks(args.stage, configs, repeats=args.repeats, only_groups=groups)
