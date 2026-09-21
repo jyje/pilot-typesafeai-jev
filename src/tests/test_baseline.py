@@ -77,6 +77,8 @@ def test_a_good_reply_becomes_a_triage_that_decide_understands():
         None,
         "billing",
         {**GOOD, "intent": "sales"},
+        {**GOOD, "intent": {"label": "billing"}},  # unhashable, must not raise TypeError
+        {**GOOD, "intent": ["billing"]},
         {**GOOD, "urgency": 3},
         {**GOOD, "urgency": True},
         {**GOOD, "urgency": "2"},

@@ -78,7 +78,7 @@ def to_triage(parsed: Any) -> Triage:
     if not isinstance(parsed, dict):
         raise OffSchemaError(f"reply is not an object: {type(parsed).__name__}")
     intent = parsed.get("intent")
-    if intent not in INTENTS:
+    if not isinstance(intent, str) or intent not in INTENTS:
         raise OffSchemaError(f"intent is not one of the choices: {intent!r}")
     urgency = parsed.get("urgency")
     if isinstance(urgency, bool) or urgency not in (0, 1, 2):
