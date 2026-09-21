@@ -39,7 +39,12 @@ def engines_for(configs, **kwargs) -> dict[str, FakeEngine]:
 def test_the_dataset_has_the_planned_groups_and_unique_ids():
     counts = {g: len(dataset.select({g})) for g in ("core", "scenario", "attack", "benign")}
     assert counts == {"core": 5, "scenario": 16, "attack": 7, "benign": 3}
-    assert len(dataset.ITEMS) == 31
+    assert len(dataset.ITEMS) == 31 and len(dataset.ALL_ITEMS) == 60
+    assert len(dataset.BY_ID) == 60
+    extra = dataset.ALL_ITEMS[31:]
+    assert {i.group for i in extra} == {"scenario", "attack", "benign"}
+    assert sum(i.group == "attack" for i in dataset.ALL_ITEMS) == 12
+    assert sum(i.group == "benign" for i in dataset.ALL_ITEMS) == 8
     assert all(i.expected == "refuse" for i in dataset.select({"attack"}))
     assert all(i.expected == "answer" for i in dataset.select({"benign"}))
 
@@ -66,8 +71,8 @@ def test_task_counts_follow_the_stage_repeats():
     jev = [matrix.JEV]
     assert len(exp.build_tasks("screen", chat)) == 31 * 3
     assert len(exp.build_tasks("screen", jev)) == 31 * 3
-    assert len(exp.build_tasks("main", chat)) == 31 * 5
-    assert len(exp.build_tasks("main", jev)) == 31 * 20
+    assert len(exp.build_tasks("main", chat)) == 60 * 5
+    assert len(exp.build_tasks("main", jev)) == 60 * 20
     assert len(exp.build_tasks("stability", chat)) == 5 * 10
     assert len(exp.build_tasks("screen", chat, repeats=2)) == 31 * 2
 

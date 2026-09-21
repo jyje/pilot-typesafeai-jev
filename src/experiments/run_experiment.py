@@ -34,11 +34,11 @@ from pilot_jev.triage import decide
 
 DATA = Path(__file__).parent / "data"
 
-# stage: (message groups or None for all, repeats for chat models, repeats for Jev)
-STAGES: dict[str, tuple[set[dataset.Group] | None, int, int]] = {
-    "screen": (None, 3, 3),
-    "main": (None, 5, 20),
-    "stability": ({"core"}, 10, 10),
+# stage: (message groups or None for all, use the 60-message set, repeats for chat models, for Jev)
+STAGES: dict[str, tuple[set[dataset.Group] | None, bool, int, int]] = {
+    "screen": (None, False, 3, 3),
+    "main": (None, True, 5, 20),
+    "stability": ({"core"}, False, 10, 10),
 }
 
 
@@ -57,8 +57,8 @@ class Task:
 def build_tasks(
     stage: str, configs: Sequence[EngineConfig], *, repeats: int | None = None
 ) -> list[Task]:
-    groups, chat_repeats, jev_repeats = STAGES[stage]
-    items = dataset.select(groups)
+    groups, extended, chat_repeats, jev_repeats = STAGES[stage]
+    items = dataset.select(groups, extended=extended)
     tasks = []
     for cfg in configs:
         n = repeats or (jev_repeats if cfg.engine == "jev" else chat_repeats)
