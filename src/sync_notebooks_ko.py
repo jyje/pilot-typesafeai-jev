@@ -25,7 +25,7 @@ import nbformat
 
 NOTEBOOKS_DIR = Path(__file__).parent / "notebooks"
 TRANSLATIONS = NOTEBOOKS_DIR / "ko.json"
-NAMES = ["01-case01-routing", "02-case02-deepagents"]
+NAMES = ["01-case01-routing", "02-case02-deepagents", "03-case04-structured-control"]
 
 
 def build_korean(english: nbformat.NotebookNode, translations: dict[str, str]) -> tuple:
